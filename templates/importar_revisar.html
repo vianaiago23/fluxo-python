@@ -1,0 +1,46 @@
+{% extends "interna.html" %}
+{% block titulo %}Revisar importação — Fluxo{% endblock %}
+
+{% block conteudo %}
+<form class="card form-card largo" method="post" action="{{ url_for('confirmar_importacao') }}">
+  <h2>Revisar importação</h2>
+  <p class="muted pequeno">
+    Encontramos {{ movimentos | length }} lançamento(s). Escolha a categoria de cada um
+    e desmarque os que não quiser importar.
+  </p>
+
+  <div class="tabela-revisao">
+    {% for movimento in movimentos %}
+      <div class="revisao-row">
+        <input type="checkbox" name="incluir" value="{{ loop.index0 }}" checked
+               aria-label="Importar este lançamento">
+
+        <span class="mono data">{{ movimento['data'][8:10] }}/{{ movimento['data'][5:7] }}/{{ movimento['data'][0:4] }}</span>
+
+        <span class="descricao" title="{{ movimento['descricao'] }}">{{ movimento['descricao'] or '—' }}</span>
+
+        <span class="{{ 'amt-in' if movimento['tipo'] == 'entrada' else 'amt-out' }}">
+          {{ '+' if movimento['tipo'] == 'entrada' else '−' }} {{ formatar_reais(movimento['valor']) }}
+        </span>
+
+        <select name="categoria_{{ loop.index0 }}" aria-label="Categoria">
+          <option value="">Escolha...</option>
+          {% for categoria in (categorias_entrada if movimento['tipo'] == 'entrada' else categorias_despesa) %}
+            <option value="{{ categoria['id'] }}">{{ categoria['nome'] }}</option>
+          {% endfor %}
+        </select>
+
+        <input type="hidden" name="data_{{ loop.index0 }}" value="{{ movimento['data'] }}">
+        <input type="hidden" name="valor_{{ loop.index0 }}" value="{{ movimento['valor'] }}">
+        <input type="hidden" name="tipo_{{ loop.index0 }}" value="{{ movimento['tipo'] }}">
+        <input type="hidden" name="descricao_{{ loop.index0 }}" value="{{ movimento['descricao'] }}">
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="form-acoes">
+    <a class="btn btn-ghost" href="{{ url_for('painel') }}">Cancelar</a>
+    <button class="btn btn-primary" type="submit">Importar selecionados</button>
+  </div>
+</form>
+{% endblock %}

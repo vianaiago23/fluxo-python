@@ -1,0 +1,22 @@
+{% extends "interna.html" %}
+{% block titulo %}Importar extrato — Fluxo{% endblock %}
+
+{% block conteudo %}
+<form class="card form-card" method="post" enctype="multipart/form-data">
+  <h2>Importar extrato do banco</h2>
+  <p class="muted pequeno">
+    Envie o extrato exportado pelo seu banco em <b>CSV</b> ou <b>OFX</b>.
+    Na próxima tela você confere cada lançamento e escolhe a categoria antes de gravar.
+  </p>
+
+  <div class="field">
+    <label for="extrato">Arquivo do extrato</label>
+    <input id="extrato" name="extrato" type="file" accept=".csv,.ofx" required>
+  </div>
+
+  <div class="form-acoes">
+    <a class="btn btn-ghost" href="{{ url_for('painel') }}">Cancelar</a>
+    <button class="btn btn-primary" type="submit">Ler arquivo</button>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,88 @@
+{% extends "interna.html" %}
+{% block titulo %}Configurações — Fluxo{% endblock %}
+
+{% macro lista_categorias(categorias, tipo) %}
+  {% for categoria in categorias %}
+    <div class="cat-row">
+      <form method="post" class="inline">
+        <input type="hidden" name="acao" value="cor_categoria">
+        <input type="hidden" name="categoria_id" value="{{ categoria['id'] }}">
+        <input type="hidden" name="cor" value="{{ PALETA[(PALETA.index(categoria['cor']) + 1) % PALETA|length] if categoria['cor'] in PALETA else PALETA[0] }}">
+        <button class="swatch" style="background: {{ categoria['cor'] }}" title="Trocar cor" type="submit"></button>
+      </form>
+
+      <form method="post" class="inline cresce">
+        <input type="hidden" name="acao" value="renomear_categoria">
+        <input type="hidden" name="categoria_id" value="{{ categoria['id'] }}">
+        <input type="text" name="nome" value="{{ categoria['nome'] }}" aria-label="Nome da categoria">
+        <button class="btn btn-ghost pequeno" type="submit">Salvar</button>
+      </form>
+
+      <form method="post" class="inline"
+            onsubmit="return confirm('Excluir a categoria {{ categoria['nome'] }}?')">
+        <input type="hidden" name="acao" value="excluir_categoria">
+        <input type="hidden" name="categoria_id" value="{{ categoria['id'] }}">
+        <button class="icon-btn" type="submit" title="Excluir">&#128465;</button>
+      </form>
+    </div>
+  {% endfor %}
+
+  <form method="post" class="add-cat-row">
+    <input type="hidden" name="acao" value="nova_categoria">
+    <input type="hidden" name="tipo" value="{{ tipo }}">
+    <input type="text" name="nome" placeholder="Nova categoria de {{ tipo }}" aria-label="Nova categoria">
+    <button class="btn" type="submit">+ Adicionar</button>
+  </form>
+{% endmacro %}
+
+{% block conteudo %}
+<div class="card form-card largo">
+  <h2>Configurações</h2>
+
+  <form method="post" class="field">
+    <input type="hidden" name="acao" value="nome">
+    <label for="nome_negocio">Nome do negócio</label>
+    <div class="linha-campo">
+      <input id="nome_negocio" name="nome_negocio" type="text" value="{{ g.usuario['nome_negocio'] }}">
+      <button class="btn" type="submit">Salvar</button>
+    </div>
+  </form>
+
+  <h3 class="section-title">Aplicar modelo pronto</h3>
+  <form method="post" class="preset-mini-row"
+        onsubmit="return confirm('Isso substitui suas categorias atuais. As que já têm lançamentos são mantidas. Continuar?')">
+    <input type="hidden" name="acao" value="aplicar_perfil">
+    {% for chave, perfil in perfis.items() %}
+      <button class="btn preset-mini" name="perfil" value="{{ chave }}" type="submit">{{ perfil['rotulo'] }}</button>
+    {% endfor %}
+  </form>
+
+  <h3 class="section-title">Categorias de entrada</h3>
+  {{ lista_categorias(entradas, 'entrada') }}
+
+  <h3 class="section-title">Categorias de despesa</h3>
+  {{ lista_categorias(despesas, 'despesa') }}
+
+  <div class="divider"></div>
+
+  <h3 class="section-title">Dados</h3>
+  <div class="danger-zone">
+    <a class="btn" href="{{ url_for('baixar_relatorio') }}">Exportar relatório em PDF</a>
+    <form method="post" class="inline"
+          onsubmit="return confirm('Isso apaga TODOS os seus lançamentos, categorias e metas. Não dá para desfazer. Tem certeza?')">
+      <input type="hidden" name="acao" value="apagar_dados">
+      <button class="btn btn-danger" type="submit">Apagar todos os dados</button>
+    </form>
+  </div>
+
+  <div class="divider"></div>
+
+  <h3 class="section-title">Conta</h3>
+  <p class="muted pequeno">Conectado como <b>{{ g.usuario['email'] }}</b></p>
+  <a class="btn" href="{{ url_for('sair') }}">Sair da conta</a>
+
+  <div class="form-acoes">
+    <a class="btn btn-primary" href="{{ url_for('painel') }}">Concluído</a>
+  </div>
+</div>
+{% endblock %}

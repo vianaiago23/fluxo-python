@@ -1,0 +1,36 @@
+{% extends "interna.html" %}
+{% block titulo %}Definir meta — Fluxo{% endblock %}
+
+{% block conteudo %}
+<form class="card form-card" method="post">
+  <h2>Definir meta de gasto mensal</h2>
+
+  {% if categorias %}
+    <div class="field">
+      <label for="categoria_id">Categoria de despesa</label>
+      <select id="categoria_id" name="categoria_id" required>
+        <option value="">Escolha...</option>
+        {% for categoria in categorias %}
+          <option value="{{ categoria['id'] }}">{{ categoria['nome'] }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="valor_limite">Limite mensal (R$)</label>
+      <input id="valor_limite" name="valor_limite" type="text" inputmode="decimal"
+             placeholder="0,00" required>
+    </div>
+
+    <div class="form-acoes">
+      <a class="btn btn-ghost" href="{{ url_for('painel') }}">Cancelar</a>
+      <button class="btn btn-primary" type="submit">Salvar meta</button>
+    </div>
+  {% else %}
+    <p class="muted">Crie uma categoria de despesa primeiro, em Configurações.</p>
+    <div class="form-acoes">
+      <a class="btn btn-primary" href="{{ url_for('configuracoes') }}">Ir para Configurações</a>
+    </div>
+  {% endif %}
+</form>
+{% endblock %}

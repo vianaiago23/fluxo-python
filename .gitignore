@@ -1,0 +1,12 @@
+# ambiente virtual (recriado com: pip install -r requirements.txt)
+.venv/
+
+# cache do Python
+__pycache__/
+*.pyc
+
+# banco de dados local (criado sozinho quando o app roda)
+fluxo.db
+
+# arquivos do macOS
+.DS_Store

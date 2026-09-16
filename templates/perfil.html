@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block titulo %}Escolha seu modelo — Fluxo{% endblock %}
+
+{% block corpo %}
+<div class="center-screen">
+  <div class="card preset-card">
+    <div class="brand">
+      <img class="brand-mark" src="{{ url_for('static', filename='favicon.svg') }}" alt="">
+      <span class="brand-text">Flu<span>xo</span></span>
+    </div>
+
+    <p class="muted texto-intro">
+      Antes de começar, escolha o modelo de categorias que mais se parece com o seu
+      negócio. Você pode renomear, criar ou remover categorias depois, em Configurações.
+    </p>
+
+    {% with mensagens = get_flashed_messages() %}
+      {% for texto in mensagens %}<p class="erro">{{ texto }}</p>{% endfor %}
+    {% endwith %}
+
+    <form method="post" class="preset-grid">
+      {% for chave, perfil in perfis.items() %}
+        <button class="preset-opt" name="perfil" value="{{ chave }}" type="submit">
+          <b>{{ perfil['rotulo'] }}</b>
+          <span>Entradas: {{ perfil['entrada'] | join(', ') }}</span>
+        </button>
+      {% endfor %}
+    </form>
+  </div>
+</div>
+{% endblock %}

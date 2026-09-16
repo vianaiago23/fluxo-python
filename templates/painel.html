@@ -1,0 +1,182 @@
+{% extends "interna.html" %}
+{% block titulo %}{{ MESES[mes - 1] }} {{ ano }} — Fluxo{% endblock %}
+
+{% block navegacao %}
+<span class="month-nav">
+  <a href="{{ url_for('painel', ano=anterior[0], mes=anterior[1]) }}" title="Mês anterior">&lsaquo;</a>
+  <span class="label">{{ MESES[mes - 1] }} {{ ano }}</span>
+  <a href="{{ url_for('painel', ano=seguinte[0], mes=seguinte[1]) }}" title="Próximo mês">&rsaquo;</a>
+</span>
+{% endblock %}
+
+{% block conteudo %}
+
+<div class="hero">
+  <div class="card flow-card">
+    <h3>Entradas de {{ MESES[mes - 1] }}</h3>
+    {% if entradas > 0 %}
+      <div class="flow-strip">
+        {% for linha in por_entrada if linha['total'] > 0 %}
+          <span class="flow-seg"
+                style="width: {{ (linha['total'] / entradas * 100) | round(2) }}%; background: {{ linha['cor'] }}"
+                title="{{ linha['nome'] }}: {{ formatar_reais(linha['total']) }}"></span>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="flow-empty">Nenhuma entrada registrada em {{ MESES[mes - 1] }}</div>
+    {% endif %}
+
+    <div class="chip-row">
+      {% for linha in por_entrada %}
+        <span class="chip">
+          <span class="dot" style="background: {{ linha['cor'] }}"></span>
+          {{ linha['nome'] }} <b class="amt">{{ formatar_reais(linha['total']) }}</b>
+        </span>
+      {% else %}
+        <span class="muted pequeno">Nenhuma categoria de entrada configurada.</span>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card saldo-card">
+    <span class="rotulo">Faturamento líquido do mês</span>
+    <div class="big" style="color: {{ 'var(--income)' if saldo >= 0 else 'var(--danger)' }}">
+      {{ formatar_reais(saldo) }}
+    </div>
+    <div class="sub">
+      Entradas {{ formatar_reais(entradas) }}<br>
+      Despesas {{ formatar_reais(despesas) }}
+    </div>
+  </div>
+</div>
+
+<p class="insight">{{ insight }}</p>
+
+<div class="charts-grid">
+  <div class="card chart-card">
+    <h3>Despesas por categoria</h3>
+    <div class="donut-wrap">
+      <img src="{{ url_for('grafico', tipo='despesas', ano=ano, mes=mes) }}" alt="Gráfico de despesas por categoria">
+      {% if despesas > 0 %}
+        <span class="donut-center">
+          <b class="v">{{ formatar_reais(despesas) }}</b>
+          <span class="l">total saídas</span>
+        </span>
+      {% endif %}
+    </div>
+    <div class="legend">
+      {% for linha in por_despesa if linha['total'] > 0 %}
+        <div class="legend-row">
+          <span class="name"><span class="dot" style="background: {{ linha['cor'] }}"></span>{{ linha['nome'] }}</span>
+          <span class="mono">{{ formatar_reais(linha['total']) }}
+            <span class="pct">{{ (linha['total'] / despesas * 100) | round | int }}%</span>
+          </span>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card chart-card">
+    <h3>Entradas por categoria</h3>
+    <div class="donut-wrap">
+      <img src="{{ url_for('grafico', tipo='entradas', ano=ano, mes=mes) }}" alt="Gráfico de entradas por categoria">
+      {% if entradas > 0 %}
+        <span class="donut-center">
+          <b class="v">{{ formatar_reais(entradas) }}</b>
+          <span class="l">total entradas</span>
+        </span>
+      {% endif %}
+    </div>
+    <div class="legend">
+      {% for linha in por_entrada if linha['total'] > 0 %}
+        <div class="legend-row">
+          <span class="name"><span class="dot" style="background: {{ linha['cor'] }}"></span>{{ linha['nome'] }}</span>
+          <span class="mono">{{ formatar_reais(linha['total']) }}
+            <span class="pct">{{ (linha['total'] / entradas * 100) | round | int }}%</span>
+          </span>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="card trend-card">
+  <h3>Evolução do saldo — últimos 6 meses</h3>
+  <img class="grafico-largo" src="{{ url_for('grafico', tipo='saldo', ano=ano, mes=mes) }}"
+       alt="Gráfico do saldo dos últimos seis meses">
+</div>
+
+<div class="card goals-card">
+  <div class="gh">
+    <h3>Metas de gastos</h3>
+    <a class="btn btn-ghost pequeno" href="{{ url_for('nova_meta') }}">+ Definir meta</a>
+  </div>
+
+  {% for meta in metas %}
+    {% set pct = (meta['gasto'] / meta['valor_limite'] * 100) if meta['valor_limite'] else 0 %}
+    <div class="goal-row">
+      <div class="top">
+        <span class="name"><span class="dot" style="background: {{ meta['cor'] }}"></span>{{ meta['nome'] }}</span>
+        <span class="nums">
+          {{ formatar_reais(meta['gasto']) }} / {{ formatar_reais(meta['valor_limite']) }}
+          <form method="post" action="{{ url_for('excluir_meta', meta_id=meta['id']) }}" class="inline">
+            <button class="goal-remove" type="submit" title="Remover meta">&times;</button>
+          </form>
+        </span>
+      </div>
+      <div class="bar-bg">
+        <div class="bar-fill" style="width: {{ [pct, 100] | min | round(1) }}%;
+             background: {{ 'var(--danger)' if pct > 100 else ('var(--gold)' if pct >= 80 else 'var(--income)') }}"></div>
+      </div>
+    </div>
+  {% else %}
+    <p class="empty pequeno">Defina um limite mensal para alguma categoria de despesa e acompanhe aqui.</p>
+  {% endfor %}
+</div>
+
+<div class="card ledger-card">
+  <div class="lh">
+    <h3>Lançamentos de {{ MESES[mes - 1] }}</h3>
+    <div class="ledger-actions">
+      <a class="btn btn-ghost pequeno" href="{{ url_for('importar') }}">Importar extrato</a>
+      <a class="btn btn-ghost pequeno" href="{{ url_for('baixar_relatorio') }}">Exportar PDF</a>
+      <a class="btn btn-primary pequeno" href="{{ url_for('editar_lancamento') }}">+ Novo lançamento</a>
+    </div>
+  </div>
+
+  {% for movimento in lancamentos %}
+    <div class="ledger-row">
+      <span class="date">{{ movimento['data'][8:10] }}/{{ movimento['data'][5:7] }}</span>
+      <span>
+        <span class="cat-name"><span class="dot" style="background: {{ movimento['categoria_cor'] }}"></span>{{ movimento['categoria_nome'] }}</span>
+        {% if movimento['descricao'] %}<span class="desc">{{ movimento['descricao'] }}</span>{% endif %}
+      </span>
+      <span class="{{ 'amt-in' if movimento['tipo'] == 'entrada' else 'amt-out' }}">
+        {{ '+' if movimento['tipo'] == 'entrada' else '−' }} {{ formatar_reais(movimento['valor']) }}
+      </span>
+      <span class="row-actions">
+        <a class="icon-btn" href="{{ url_for('editar_lancamento', lancamento_id=movimento['id']) }}" title="Editar">&#9998;</a>
+        <form method="post" action="{{ url_for('excluir_lancamento', lancamento_id=movimento['id']) }}" class="inline"
+              onsubmit="return confirm('Excluir este lançamento?')">
+          <button class="icon-btn" type="submit" title="Excluir">&#128465;</button>
+        </form>
+      </span>
+    </div>
+  {% else %}
+    <p class="empty">
+      Nenhum lançamento em {{ MESES[mes - 1] }} ainda.<br><br>
+      <a class="btn btn-primary" href="{{ url_for('editar_lancamento') }}">+ Adicionar o primeiro</a>
+    </p>
+  {% endfor %}
+
+  {% if total_lancamentos > 5 %}
+    <p class="centro">
+      {% if mostrar_todos %}
+        <a class="btn btn-ghost pequeno" href="{{ url_for('painel', ano=ano, mes=mes) }}">Ver menos</a>
+      {% else %}
+        <a class="btn btn-ghost pequeno" href="{{ url_for('painel', ano=ano, mes=mes, todos=1) }}">Ver tudo ({{ total_lancamentos }})</a>
+      {% endif %}
+    </p>
+  {% endif %}
+</div>
+{% endblock %}

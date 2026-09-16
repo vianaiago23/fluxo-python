@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block corpo %}
+<div id="app">
+  <header class="topbar">
+    <a class="brand" href="{{ url_for('painel') }}">
+      <img class="brand-mark" src="{{ url_for('static', filename='favicon.svg') }}" alt="">
+      <span class="brand-text">Flu<span>xo</span><small>{{ g.usuario['nome_negocio'] }}</small></span>
+    </a>
+    <nav class="topbar-actions">
+      {% block navegacao %}{% endblock %}
+      <a class="icon-btn" href="{{ url_for('configuracoes') }}" title="Configurações">&#9881;</a>
+      <a class="icon-btn" href="{{ url_for('sair') }}" title="Sair">&#9099;</a>
+    </nav>
+  </header>
+
+  {% with mensagens = get_flashed_messages(with_categories=true) %}
+    {% if mensagens %}
+      {% for categoria, texto in mensagens %}
+        <p class="aviso aviso-{{ categoria }}">{{ texto }}</p>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  {% block conteudo %}{% endblock %}
+
+  <p class="footnote">Seus dados ficam salvos na sua conta, de forma privada.</p>
+</div>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "interna.html" %}
+{% block titulo %}{{ 'Editar lançamento' if atual else 'Novo lançamento' }} — Fluxo{% endblock %}
+
+{% block conteudo %}
+<form class="card form-card" method="post">
+  <h2>{{ 'Editar lançamento' if atual else 'Novo lançamento' }}</h2>
+  <p class="muted pequeno">O tipo (entrada ou despesa) vem da categoria escolhida.</p>
+
+  <div class="field">
+    <label for="categoria_id">Categoria</label>
+    <select id="categoria_id" name="categoria_id" required>
+      <option value="">Escolha...</option>
+      <optgroup label="Entradas">
+        {% for categoria in entradas %}
+          <option value="{{ categoria['id'] }}"
+            {{ 'selected' if atual and atual['categoria_id'] == categoria['id'] }}>{{ categoria['nome'] }}</option>
+        {% endfor %}
+      </optgroup>
+      <optgroup label="Despesas">
+        {% for categoria in despesas %}
+          <option value="{{ categoria['id'] }}"
+            {{ 'selected' if atual and atual['categoria_id'] == categoria['id'] }}>{{ categoria['nome'] }}</option>
+        {% endfor %}
+      </optgroup>
+    </select>
+  </div>
+
+  <div class="field">
+    <label for="valor">Valor (R$)</label>
+    <input id="valor" name="valor" type="text" inputmode="decimal" placeholder="0,00"
+           value="{{ ('%.2f' % atual['valor']) | replace('.', ',') if atual else '' }}" required>
+  </div>
+
+  <div class="field">
+    <label for="data">Data</label>
+    <input id="data" name="data" type="date" value="{{ atual['data'] if atual else hoje }}" required>
+  </div>
+
+  <div class="field">
+    <label for="descricao">Descrição (opcional)</label>
+    <input id="descricao" name="descricao" type="text" placeholder="Ex: Projeto Casa Verde"
+           value="{{ atual['descricao'] if atual else '' }}">
+  </div>
+
+  {% if not atual %}
+    <div class="field">
+      <label for="repetir">Repetir por quantos meses (1 = só este)</label>
+      <input id="repetir" name="repetir" type="number" min="1" max="24" value="1">
+    </div>
+  {% endif %}
+
+  <div class="form-acoes">
+    <a class="btn btn-ghost" href="{{ url_for('painel') }}">Cancelar</a>
+    <button class="btn btn-primary" type="submit">Salvar</button>
+  </div>
+</form>
+{% endblock %}

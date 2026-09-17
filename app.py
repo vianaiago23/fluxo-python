@@ -224,10 +224,13 @@ def nova_meta():
     categorias = banco.listar_categorias(usuario_id, "despesa")
 
     if request.method == "POST":
-        categoria_id = request.form.get("categoria_id")
+        categoria_id = request.form.get("categoria_id") or ""
         limite = valor_do_formulario("valor_limite")
-        if categoria_id and limite > 0:
-            banco.salvar_meta(usuario_id, int(categoria_id), limite)
+        # só aceita categoria de despesa que pertença a quem está logado
+        categoria = (banco.buscar_categoria(usuario_id, int(categoria_id))
+                     if categoria_id.isdigit() else None)
+        if categoria and categoria["tipo"] == "despesa" and limite > 0:
+            banco.salvar_meta(usuario_id, categoria["id"], limite)
             return redirect(url_for("painel"))
         flash("Escolha a categoria e informe um valor válido.", "erro")
 
@@ -332,13 +335,16 @@ def confirmar_importacao():
     gravados = 0
 
     for indice in request.form.getlist("incluir"):
-        categoria_id = request.form.get(f"categoria_{indice}")
-        if not categoria_id:
+        categoria_id = request.form.get(f"categoria_{indice}") or ""
+        # a categoria precisa ser do usuário logado; o tipo vem dela, não do formulário
+        categoria = (banco.buscar_categoria(usuario_id, int(categoria_id))
+                     if categoria_id.isdigit() else None)
+        if categoria is None:
             continue
         banco.criar_lancamento(
             usuario_id,
-            request.form.get(f"tipo_{indice}"),
-            int(categoria_id),
+            categoria["tipo"],
+            categoria["id"],
             float(request.form.get(f"valor_{indice}")),
             request.form.get(f"data_{indice}"),
             request.form.get(f"descricao_{indice}") or "",

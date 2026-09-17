@@ -275,7 +275,8 @@ def total_por_categoria(usuario_id, ano, mes, tipo):
     return conectar().execute(
         "SELECT c.id, c.nome, c.cor, COALESCE(SUM(l.valor), 0) AS total "
         "FROM categorias c "
-        "LEFT JOIN lancamentos l ON l.categoria_id = c.id AND l.data LIKE ? "
+        "LEFT JOIN lancamentos l ON l.categoria_id = c.id "
+        "AND l.usuario_id = c.usuario_id AND l.data LIKE ? "
         "WHERE c.usuario_id = ? AND c.tipo = ? "
         "GROUP BY c.id ORDER BY total DESC",
         (prefixo + "%", usuario_id, tipo),
@@ -301,7 +302,7 @@ def listar_metas(usuario_id, ano, mes):
         "SELECT m.id, m.valor_limite, c.id AS categoria_id, c.nome, c.cor, "
         "COALESCE(("
         "  SELECT SUM(l.valor) FROM lancamentos l "
-        "  WHERE l.categoria_id = c.id AND l.data LIKE ?"
+        "  WHERE l.categoria_id = c.id AND l.usuario_id = m.usuario_id AND l.data LIKE ?"
         "), 0) AS gasto "
         "FROM metas m JOIN categorias c ON c.id = m.categoria_id "
         "WHERE m.usuario_id = ? ORDER BY c.nome",
@@ -313,7 +314,8 @@ def salvar_meta(usuario_id, categoria_id, valor_limite):
     banco = conectar()
     banco.execute(
         "INSERT INTO metas (usuario_id, categoria_id, valor_limite) VALUES (?, ?, ?) "
-        "ON CONFLICT(categoria_id) DO UPDATE SET valor_limite = excluded.valor_limite",
+        "ON CONFLICT(categoria_id) DO UPDATE SET valor_limite = excluded.valor_limite "
+        "WHERE metas.usuario_id = excluded.usuario_id",
         (usuario_id, categoria_id, valor_limite),
     )
     banco.commit()

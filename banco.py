@@ -2,18 +2,36 @@
 
 Todo o SQL do sistema fica aqui. As rotas e as telas nunca escrevem
 consultas direto — elas chamam as funções deste arquivo.
+
+O banco é o mesmo nos dois lugares em que o sistema roda:
+
+* no computador, é o arquivo ``fluxo.db`` criado ao lado deste código;
+* publicado na internet, é o mesmo SQLite hospedado no Turso, acessado por
+  HTTP. Isso é necessário porque o servidor da Vercel descarta o disco a cada
+  requisição: um arquivo local ali seria apagado junto com os dados.
+
+As duas bibliotecas seguem a mesma interface (DB-API 2.0), então o SQL abaixo
+não muda de um caso para o outro.
 """
 
+import os
 import sqlite3
-from datetime import date
 from pathlib import Path
 
+import turso_serverless
 from flask import g
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from constantes import PALETA, PERFIS
+from constantes import PALETA, PERFIS, hoje
 
 CAMINHO_BANCO = Path(__file__).parent / "fluxo.db"
+
+TURSO_URL = os.environ.get("TURSO_DATABASE_URL")
+TURSO_TOKEN = os.environ.get("TURSO_AUTH_TOKEN")
+NA_NUVEM = bool(TURSO_URL)
+
+# Cada biblioteca tem a sua própria exceção para "esse valor já existe".
+ErroIntegridade = (sqlite3.IntegrityError, turso_serverless.IntegrityError)
 
 ESQUEMA = """
 CREATE TABLE IF NOT EXISTS usuarios (
@@ -56,12 +74,26 @@ CREATE INDEX IF NOT EXISTS idx_lancamentos_usuario_data
 
 # ------------------------------------------------------------------ conexão
 
+def abrir_conexao():
+    """Abre uma conexão nova: no Turso, se houver credencial; senão no arquivo."""
+    if NA_NUVEM:
+        conexao = turso_serverless.connect(TURSO_URL, auth_token=TURSO_TOKEN)
+        conexao.row_factory = turso_serverless.Row
+    else:
+        conexao = sqlite3.connect(CAMINHO_BANCO)
+        conexao.row_factory = sqlite3.Row
+
+    try:
+        conexao.execute("PRAGMA foreign_keys = ON")
+    except (sqlite3.Error, turso_serverless.Error):
+        pass   # no servidor do Turso as chaves estrangeiras já vêm ligadas
+    return conexao
+
+
 def conectar():
     """Devolve a conexão da requisição atual, abrindo uma se preciso."""
     if "banco" not in g:
-        g.banco = sqlite3.connect(CAMINHO_BANCO)
-        g.banco.row_factory = sqlite3.Row
-        g.banco.execute("PRAGMA foreign_keys = ON")
+        g.banco = abrir_conexao()
     return g.banco
 
 
@@ -72,8 +104,8 @@ def fechar(_erro=None):
 
 
 def criar_tabelas():
-    """Cria o arquivo do banco e as tabelas, se ainda não existirem."""
-    banco = sqlite3.connect(CAMINHO_BANCO)
+    """Cria o banco e as tabelas, se ainda não existirem."""
+    banco = abrir_conexao()
     banco.executescript(ESQUEMA)
     banco.commit()
     banco.close()
@@ -87,11 +119,11 @@ def criar_usuario(email, senha):
     try:
         cursor = banco.execute(
             "INSERT INTO usuarios (email, senha_hash, criado_em) VALUES (?, ?, ?)",
-            (email.strip().lower(), generate_password_hash(senha), date.today().isoformat()),
+            (email.strip().lower(), generate_password_hash(senha), hoje().isoformat()),
         )
         banco.commit()
         return cursor.lastrowid
-    except sqlite3.IntegrityError:
+    except ErroIntegridade:
         return None
 
 

@@ -9,9 +9,9 @@ Depois entre com:  demo@fluxo.local  /  demo1234
 """
 
 import random
-from datetime import date
 
 import banco
+import constantes
 from app import app
 
 EMAIL_DEMO = "demo@fluxo.local"
@@ -52,11 +52,11 @@ def main():
                     for c in banco.listar_categorias(usuario_id)}
 
         random.seed(7)   # sempre gera os mesmos números
-        hoje = date.today()
+        data_de_hoje = constantes.hoje()
         total = 0
 
         for atras in range(5, -1, -1):          # seis meses, do mais antigo ao atual
-            ano, mes = mes_anterior(hoje.year, hoje.month, atras)
+            ano, mes = mes_anterior(data_de_hoje.year, data_de_hoje.month, atras)
 
             for nome, (minimo, maximo) in ENTRADAS.items():
                 for _ in range(random.randint(1, 3)):

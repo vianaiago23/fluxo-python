@@ -1,5 +1,17 @@
 """Valores fixos usados em todo o sistema."""
 
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+# O servidor na nuvem roda com o relogio em UTC. Sem isto, um lancamento feito
+# as 21h no Brasil seria gravado com a data do dia seguinte.
+FUSO_BRASIL = ZoneInfo("America/Sao_Paulo")
+
+
+def hoje():
+    """Data de hoje no horario de Brasilia."""
+    return datetime.now(FUSO_BRASIL).date()
+
 # Cores das categorias, pensadas para ter contraste sobre fundo branco.
 PALETA = [
     "#005227", "#2F7A4F", "#7FA891", "#9AA5A0", "#4A5C55",

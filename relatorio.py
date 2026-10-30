@@ -1,12 +1,11 @@
 """Geração do relatório financeiro em PDF (fpdf2)."""
 
 from collections import defaultdict
-from datetime import date
 
 from fpdf import FPDF
 from fpdf.fonts import FontFace
 
-from constantes import MESES, formatar_reais
+from constantes import MESES, formatar_reais, hoje
 
 VERDE = (0, 82, 39)
 VERMELHO = (178, 58, 31)
@@ -56,7 +55,7 @@ def _cabecalho(pdf, nome_negocio, largura):
     pdf.set_text_color(*CINZA)
     pdf.cell(100, 5, f"Relatorio financeiro - {nome_negocio}")
     pdf.set_xy(largura - 74, 19)
-    pdf.cell(60, 5, f"Gerado em {date.today().strftime('%d/%m/%Y')}", align="R")
+    pdf.cell(60, 5, f"Gerado em {hoje().strftime('%d/%m/%Y')}", align="R")
 
     pdf.set_draw_color(*VERDE)
     pdf.set_line_width(0.6)

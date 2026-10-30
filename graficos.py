@@ -5,8 +5,14 @@ que as rotas do Flask entregam como se fossem um arquivo.
 """
 
 import io
+import os
 
-import matplotlib
+# A pasta pessoal do servidor na nuvem é somente leitura, e o matplotlib
+# precisa de algum lugar para guardar o cache de fontes.
+if os.environ.get("VERCEL"):
+    os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
+
+import matplotlib  # noqa: E402
 
 matplotlib.use("Agg")  # sem interface gráfica: só gera o arquivo
 

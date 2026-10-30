@@ -1,3 +1,9 @@
 Flask==3.1.3
 fpdf2==2.8.8
 matplotlib==3.11.2
+# cliente do Turso: o mesmo SQLite, acessado por HTTP quando publicado
+turso_serverless==0.1.0
+# tabela de fusos horarios (o servidor da nuvem nao traz a do sistema)
+tzdata==2026.5
+# certificados raiz (o Python do macOS nao traz os dele)
+certifi==2026.10.23

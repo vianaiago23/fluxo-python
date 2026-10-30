@@ -10,3 +10,13 @@ fluxo.db
 
 # arquivos do macOS
 .DS_Store
+
+# pasta da Vercel (criada pelo comando vercel)
+.vercel/
+.vercel
+.env*
+
+# material que a integracao do Turso deixou para assistentes de IA
+.agents/
+.claude/
+skills-lock.json

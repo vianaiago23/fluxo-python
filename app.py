@@ -5,7 +5,6 @@ guarda os dados no SQLite, desenha os gráficos e gera o relatório em PDF.
 """
 
 import os
-from datetime import date
 from functools import wraps
 
 from flask import (Flask, Response, flash, g, redirect, render_template,
@@ -16,10 +15,28 @@ import banco
 import extrato as leitor_extrato
 import graficos
 import relatorio
-from constantes import MESES, PALETA, PERFIS, formatar_reais
+from constantes import MESES, PALETA, PERFIS, formatar_reais, hoje
+
+# A Vercel define esta variável sozinha quando o sistema está publicado.
+NA_VERCEL = bool(os.environ.get("VERCEL"))
+
+segredo = os.environ.get("FLUXO_SEGREDO")
+if not segredo:
+    if NA_VERCEL:
+        raise RuntimeError(
+            "Falta a variável de ambiente FLUXO_SEGREDO. Ela assina os cookies "
+            "de login: sem um valor fixo e secreto, qualquer pessoa poderia "
+            "forjar uma sessão. Cadastre-a nas configurações do projeto."
+        )
+    segredo = "chave-de-desenvolvimento-trocar-em-producao"
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLUXO_SEGREDO", "chave-de-desenvolvimento-trocar-em-producao")
+app.secret_key = segredo
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,      # o JavaScript da página não lê o cookie
+    SESSION_COOKIE_SAMESITE="Lax",     # outro site não usa a sessão do usuário
+    SESSION_COOKIE_SECURE=NA_VERCEL,   # publicado, o cookie só viaja em HTTPS
+)
 app.teardown_appcontext(banco.fechar)
 
 # deixa as funções de formatação disponíveis dentro dos templates
@@ -51,13 +68,15 @@ def carregar_usuario():
 
 def mes_escolhido():
     """Lê ano e mês da URL; sem isso, usa o mês corrente."""
-    hoje = date.today()
+    data_de_hoje = hoje()
     try:
-        ano = int(request.args.get("ano", hoje.year))
-        mes = int(request.args.get("mes", hoje.month))
+        ano = int(request.args.get("ano", data_de_hoje.year))
+        mes = int(request.args.get("mes", data_de_hoje.month))
     except ValueError:
-        return hoje.year, hoje.month
-    return (ano, mes) if 1 <= mes <= 12 else (hoje.year, hoje.month)
+        return data_de_hoje.year, data_de_hoje.month
+    if 1 <= mes <= 12:
+        return ano, mes
+    return data_de_hoje.year, data_de_hoje.month
 
 
 def valor_do_formulario(campo):
@@ -203,7 +222,7 @@ def editar_lancamento(lancamento_id=None):
         atual=atual,
         entradas=banco.listar_categorias(usuario_id, "entrada"),
         despesas=banco.listar_categorias(usuario_id, "despesa"),
-        hoje=date.today().isoformat(),
+        hoje=hoje().isoformat(),
     )
 
 

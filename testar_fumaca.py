@@ -763,6 +763,135 @@ for nome, categoria, limite in (("categoria de entrada", cat_entrada, "500,00"),
 r = cli_meta.post("/meta/nova", data={"categoria_id": cat_entrada, "valor_limite": "500,00"}, follow_redirects=True)
 checar("meta em categoria de entrada: avisa o motivo", "Escolha a categoria" in r.get_data(as_text=True))
 
+
+# ======================================================================
+# ITEM 32 — isolamento entre contas em TODA ação com número
+# ======================================================================
+cli_a, id_a = conta_limpa("isola_a@a.com")
+cli_b, id_b = conta_limpa("isola_b@a.com")
+anonimo_iso = app.test_client()
+ano_i, mes_i = constantes.hoje().year, constantes.hoje().month
+dia_i = constantes.hoje().isoformat()
+
+with app.test_request_context():
+    desp_b = [c["id"] for c in banco.listar_categorias(id_b, "despesa")]
+    desp_a = [c["id"] for c in banco.listar_categorias(id_a, "despesa")]
+cat_b_lanc, cat_b_meta, cat_b_livre = desp_b[0], desp_b[1], desp_b[2]
+
+cli_b.post("/lancamento/novo", data={"categoria_id": cat_b_lanc, "valor": "80,00", "data": dia_i,
+                                     "descricao": "Segredo B", "repetir": "1"})
+cli_b.post("/meta/nova", data={"categoria_id": cat_b_meta, "valor_limite": "500,00"})
+with app.test_request_context():
+    lanc_b = banco.listar_todos_lancamentos(id_b)[0]["id"]
+    meta_b = banco.listar_metas(id_b, ano_i, mes_i)[0]["id"]
+    nome_b = banco.buscar_categoria(id_b, cat_b_livre)["nome"]
+    cor_b = banco.buscar_categoria(id_b, cat_b_livre)["cor"]
+
+
+def lanc_de_b():
+    with app.test_request_context():
+        return banco.buscar_lancamento(id_b, lanc_b)
+
+
+def metas_de(usuario_id):
+    with app.test_request_context():
+        return [dict(m) for m in banco.listar_metas(usuario_id, ano_i, mes_i)]
+
+
+def categoria_de_b():
+    with app.test_request_context():
+        return banco.buscar_categoria(id_b, cat_b_livre)
+
+
+# --- editar lançamento (abrir a tela e enviar o formulário)
+r = tentar(lambda: cli_a.get(f"/lancamento/{lanc_b}/editar"))
+checar("editar lancamento alheio: a tela nao abre", sem_estouro(r) and r.status_code == 302
+       and "Segredo B" not in r.get_data(as_text=True))
+r = tentar(lambda: cli_a.post(f"/lancamento/{lanc_b}/editar", data={
+    "categoria_id": desp_a[0], "valor": "1,00", "data": dia_i, "descricao": "INVADIDO", "repetir": "1"}))
+checar("editar lancamento alheio: nao altera o original",
+       sem_estouro(r) and lanc_de_b()["descricao"] == "Segredo B" and lanc_de_b()["valor"] == 80.0)
+checar("editar lancamento alheio: nao cria nada na conta A", total_lancamentos(id_a) == 0)
+
+# --- excluir lançamento
+r = tentar(lambda: cli_a.post(f"/lancamento/{lanc_b}/excluir"))
+checar("excluir lancamento alheio: nao apaga", sem_estouro(r) and lanc_de_b() is not None)
+
+# --- excluir meta
+r = tentar(lambda: cli_a.post(f"/meta/{meta_b}/excluir"))
+checar("excluir meta alheia: nao apaga", sem_estouro(r) and len(metas_de(id_b)) == 1)
+
+# --- renomear, trocar cor e excluir categoria (o número vem no formulário)
+r = tentar(lambda: cli_a.post("/configuracoes", data={
+    "acao": "renomear_categoria", "categoria_id": cat_b_livre, "nome": "INVADIDA"}))
+checar("renomear categoria alheia: nao renomeia", sem_estouro(r) and categoria_de_b()["nome"] == nome_b)
+r = tentar(lambda: cli_a.post("/configuracoes", data={
+    "acao": "cor_categoria", "categoria_id": cat_b_livre, "cor": "#000000"}))
+checar("trocar cor de categoria alheia: nao troca", sem_estouro(r) and categoria_de_b()["cor"] == cor_b)
+# a categoria livre não tem lançamentos: se o isolamento falhar, ela seria mesmo apagada
+r = tentar(lambda: cli_a.post("/configuracoes", data={"acao": "excluir_categoria", "categoria_id": cat_b_livre}))
+checar("excluir categoria alheia: nao apaga", sem_estouro(r) and categoria_de_b() is not None)
+
+# --- usar o número de outra conta ao CRIAR coisas
+antes_b = total_lancamentos(id_b)
+r = tentar(lambda: cli_a.post("/lancamento/novo", data={
+    "categoria_id": cat_b_lanc, "valor": "10,00", "data": dia_i, "descricao": "com categoria alheia", "repetir": "1"}))
+checar("novo lancamento com categoria alheia: nao grava em nenhuma conta",
+       sem_estouro(r) and total_lancamentos(id_a) == 0 and total_lancamentos(id_b) == antes_b)
+r = tentar(lambda: cli_a.post("/meta/nova", data={"categoria_id": cat_b_meta, "valor_limite": "1,00"}))
+checar("nova meta com categoria alheia: nao cria nem altera a meta de B",
+       sem_estouro(r) and metas_de(id_a) == [] and metas_de(id_b)[0]["valor_limite"] == 500.0)
+r = tentar(lambda: cli_a.post("/importar/confirmar", data={
+    "incluir": ["0"], "categoria_0": str(cat_b_lanc), "valor_0": "10.00",
+    "data_0": dia_i, "descricao_0": "importado alheio"}))
+checar("importar para categoria alheia: nao grava em nenhuma conta",
+       sem_estouro(r) and total_lancamentos(id_a) == 0 and total_lancamentos(id_b) == antes_b)
+
+# --- sem login, nada disso funciona
+for nome, url, dados in (("editar", f"/lancamento/{lanc_b}/editar", {"categoria_id": cat_b_lanc, "valor": "1", "data": dia_i}),
+                         ("excluir lancamento", f"/lancamento/{lanc_b}/excluir", {}),
+                         ("excluir meta", f"/meta/{meta_b}/excluir", {}),
+                         ("excluir categoria", "/configuracoes", {"acao": "excluir_categoria", "categoria_id": cat_b_livre})):
+    r = tentar(lambda: anonimo_iso.post(url, data=dados))
+    checar(f"{nome} sem login: manda para o login", sem_estouro(r) and "/entrar" in r.headers.get("Location", ""))
+checar("sem login: nada do B foi mexido",
+       lanc_de_b() is not None and len(metas_de(id_b)) == 1 and categoria_de_b()["nome"] == nome_b)
+
+# --- id que não existe, e número que não é número
+for url in ("/lancamento/999999/editar", "/lancamento/999999/excluir", "/meta/999999/excluir"):
+    r = tentar(lambda: (cli_a.get(url) if url.endswith("editar") else cli_a.post(url)))
+    checar(f"{url}: nao estoura erro", sem_estouro(r))
+for acao in ("renomear_categoria", "cor_categoria", "excluir_categoria"):
+    r = tentar(lambda: cli_a.post("/configuracoes", data={"acao": acao, "categoria_id": "abc", "nome": "x"}))
+    checar(f"{acao} com id que nao e numero: nao estoura erro", sem_estouro(r))
+r = tentar(lambda: cli_a.post("/lancamento/novo", data={
+    "categoria_id": "abc", "valor": "10,00", "data": dia_i, "descricao": "x", "repetir": "1"}))
+checar("novo lancamento com categoria que nao e numero: nao estoura erro", sem_estouro(r))
+
+# --- controle: o DONO consegue fazer cada ação (prova que os testes acima não passam "no vazio")
+cli_a.post("/lancamento/novo", data={"categoria_id": desp_a[0], "valor": "20,00", "data": dia_i,
+                                     "descricao": "meu lancamento", "repetir": "1"})
+with app.test_request_context():
+    meu = banco.listar_todos_lancamentos(id_a)[0]["id"]
+cli_a.post(f"/lancamento/{meu}/editar", data={"categoria_id": desp_a[0], "valor": "30,00",
+                                              "data": dia_i, "descricao": "meu editado", "repetir": "1"})
+with app.test_request_context():
+    editado = banco.buscar_lancamento(id_a, meu)
+checar("controle: o dono consegue editar o proprio lancamento", editado["descricao"] == "meu editado")
+cli_a.post(f"/lancamento/{meu}/excluir")
+checar("controle: o dono consegue excluir o proprio lancamento", total_lancamentos(id_a) == 0)
+cli_a.post("/meta/nova", data={"categoria_id": desp_a[1], "valor_limite": "100,00"})
+cli_a.post(f"/meta/{metas_de(id_a)[0]['id']}/excluir")
+checar("controle: o dono consegue excluir a propria meta", metas_de(id_a) == [])
+cli_a.post("/configuracoes", data={"acao": "renomear_categoria", "categoria_id": desp_a[2], "nome": "Renomeada"})
+with app.test_request_context():
+    nome_a = banco.buscar_categoria(id_a, desp_a[2])["nome"]
+checar("controle: o dono consegue renomear a propria categoria", nome_a == "Renomeada")
+cli_a.post("/configuracoes", data={"acao": "excluir_categoria", "categoria_id": desp_a[2]})
+with app.test_request_context():
+    sumiu = banco.buscar_categoria(id_a, desp_a[2]) is None
+checar("controle: o dono consegue excluir a propria categoria livre", sumiu)
+
 print(f"\n{n - len(falhas)}/{n} verificacoes passaram")
 if falhas:
     print("FALHAS:", *falhas, sep="\n  - ")

@@ -208,32 +208,43 @@ def buscar_token_valido(token):
     return None
 
 
-def trocar_senha(usuario_id, senha_nova):
-    """Grava a senha nova e cancela os pedidos de recuperação pendentes."""
-    banco = conectar()
+def _gravar_senha(banco, usuario_id, senha_hash):
+    """Grava a senha e cancela os pedidos pendentes. Quem chama faz o commit."""
     banco.execute("UPDATE usuarios SET senha_hash = ? WHERE id = ?",
-                  (generate_password_hash(senha_nova), usuario_id))
+                  (senha_hash, usuario_id))
     banco.execute("UPDATE tokens_recuperacao SET usado = 1 WHERE usuario_id = ?",
                   (usuario_id,))
+
+
+def trocar_senha(usuario_id, senha_nova):
+    senha_hash = generate_password_hash(senha_nova)
+    banco = conectar()
+    _gravar_senha(banco, usuario_id, senha_hash)
     banco.commit()
 
 
 def redefinir_senha(token, senha_nova):
-    """Consome o token e troca a senha. Devolve False se o token não vale."""
+    """Consome o token e troca a senha. Devolve False se o token não vale.
+
+    As duas coisas vão na mesma transação: se a gravação da senha falhar, o
+    token continua valendo e a pessoa pode tentar de novo.
+    """
     linha = buscar_token_valido(token)
     if linha is None:
         return False
+    senha_hash = generate_password_hash(senha_nova)
     banco = conectar()
     # O "usado = 0" garante que, em dois envios simultâneos, só um passe.
     cursor = banco.execute(
         "UPDATE tokens_recuperacao SET usado = 1 WHERE token = ? AND usado = 0",
         (token,),
     )
-    consumiu = cursor.rowcount == 1
+    if cursor.rowcount != 1:
+        banco.rollback()
+        return False
+    _gravar_senha(banco, linha["usuario_id"], senha_hash)
     banco.commit()
-    if consumiu:
-        trocar_senha(linha["usuario_id"], senha_nova)
-    return consumiu
+    return True
 
 
 # ---------------------------------------------------------------- categorias
@@ -455,7 +466,13 @@ def apagar_dados(usuario_id):
 
 
 def excluir_conta(usuario_id):
-    """Apaga o usuário; o ON DELETE CASCADE leva junto tudo que é dele."""
+    """Apaga o usuário e tudo que é dele, na mesma transação.
+
+    O ON DELETE CASCADE já faria isso, mas depende de as chaves estrangeiras
+    estarem ligadas na conexão. Aqui a promessa de apagar tudo não depende disso.
+    """
     banco = conectar()
+    for tabela in ("metas", "lancamentos", "categorias", "tokens_recuperacao"):
+        banco.execute(f"DELETE FROM {tabela} WHERE usuario_id = ?", (usuario_id,))
     banco.execute("DELETE FROM usuarios WHERE id = ?", (usuario_id,))
     banco.commit()

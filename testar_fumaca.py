@@ -216,6 +216,24 @@ checar("token vale ate o ultimo dia da validade", anonimo.get(f"/recuperar/{toke
 r = anonimo.post("/recuperar/inventado", data={"senha": "invasor123", "confirmacao": "invasor123"})
 checar("token inventado recusado", r.status_code == 400 and not consegue_entrar("rec@a.com", "invasor123"))
 
+# se a gravação da senha falhar no meio, o token não pode ser perdido
+gravar_de_verdade = banco._gravar_senha
+
+
+def gravar_com_falha(*_args):
+    raise RuntimeError("falha simulada")
+
+
+banco._gravar_senha = gravar_com_falha
+try:
+    with app.test_request_context():
+        banco.redefinir_senha(token, "senha-perdida")
+except RuntimeError:
+    pass
+banco._gravar_senha = gravar_de_verdade
+checar("falha ao gravar a senha nao queima o token",
+       anonimo.get(f"/recuperar/{token}").status_code == 200)
+
 # --- troca de senha em Configurações
 c_troca = app.test_client()
 c_troca.post("/entrar", data={"modo": "cadastro", "email": "troca@a.com", "senha": "senha-antiga"})
@@ -293,6 +311,12 @@ checar("outro usuario continua entrando", consegue_entrar("fica@a.com", "senha12
 checar("conta excluida nao entra mais", not consegue_entrar("sai@a.com", "senha123"))
 checar("aviso de exclusao aparece no login", "foi excluída" in c_sai.get("/entrar").get_data(as_text=True))
 checar("sessao encerrada apos a exclusao", "/entrar" in c_sai.get("/").headers.get("Location", ""))
+
+_, id_sem_fk = criar_conta_com_dados("semfk@a.com")
+with app.test_request_context():
+    banco.conectar().execute("PRAGMA foreign_keys = OFF")
+    banco.excluir_conta(id_sem_fk)
+checar("exclusao apaga tudo mesmo sem chaves estrangeiras", not any(contar_linhas(id_sem_fk).values()))
 
 print(f"\n{n - len(falhas)}/{n} verificacoes passaram")
 if falhas:

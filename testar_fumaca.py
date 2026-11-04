@@ -559,6 +559,42 @@ checar("links do painel mantem a ordenacao", "ordem=valor_desc" in corpo)
 r = c_anual.get("/?ordem=l.valor;%20DROP%20TABLE%20lancamentos;--")
 checar("ordenacao invalida na URL nao quebra a tela", r.status_code == 200)
 
+# --- validação de data e de valor no lançamento
+
+from datetime import timedelta  # noqa: E402
+
+with app.test_request_context():
+    antes_de_tudo = len(banco.listar_todos_lancamentos(1))
+
+amanha = (constantes.hoje() + timedelta(days=1)).isoformat()
+r = c.post("/lancamento/novo", data={"categoria_id": id_entrada, "valor": "100,00",
+                                     "data": amanha, "descricao": "futuro", "repetir": "1"})
+with app.test_request_context():
+    depois = banco.listar_todos_lancamentos(1)
+checar("data no futuro e recusada", len(depois) == antes_de_tudo)
+checar("data no futuro explica o motivo", "futuro" in r.get_data(as_text=True))
+
+r = c.post("/lancamento/novo", data={"categoria_id": id_entrada, "valor": "99.999.999,00",
+                                     "data": hoje, "descricao": "absurdo", "repetir": "1"})
+with app.test_request_context():
+    depois = banco.listar_todos_lancamentos(1)
+checar("valor acima do teto e recusado", len(depois) == antes_de_tudo)
+checar("valor acima do teto informa o limite", "limite" in r.get_data(as_text=True))
+
+r = c.post("/lancamento/novo", data={"categoria_id": id_entrada, "valor": "10,00",
+                                     "data": "31/02/2026", "descricao": "data torta", "repetir": "1"})
+with app.test_request_context():
+    depois = banco.listar_todos_lancamentos(1)
+checar("data mal formada nao derruba a tela", r.status_code == 200)
+checar("data mal formada nao grava nada", len(depois) == antes_de_tudo)
+
+r = c.post("/lancamento/novo", data={"categoria_id": id_entrada, "valor": "10,00",
+                                     "data": constantes.hoje().isoformat(),
+                                     "descricao": "hoje vale", "repetir": "1"})
+with app.test_request_context():
+    depois = banco.listar_todos_lancamentos(1)
+checar("lancamento de hoje continua sendo aceito", len(depois) == antes_de_tudo + 1)
+
 print(f"\n{n - len(falhas)}/{n} verificacoes passaram")
 if falhas:
     print("FALHAS:", *falhas, sep="\n  - ")

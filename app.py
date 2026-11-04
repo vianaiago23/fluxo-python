@@ -17,7 +17,8 @@ import banco
 import extrato as leitor_extrato
 import graficos
 import relatorio
-from constantes import MESES, PALETA, PERFIS, formatar_reais, hoje
+from constantes import (MESES, PALETA, PERFIS, VALOR_MAXIMO,
+                        formatar_reais, hoje)
 
 # A Vercel define esta variável sozinha quando o sistema está publicado.
 NA_VERCEL = bool(os.environ.get("VERCEL"))
@@ -144,6 +145,19 @@ def ordem_escolhida():
     """Lê ?ordem= da URL. Só aceita as chaves fixas do banco.ORDENACOES."""
     ordem = request.args.get("ordem", "")
     return ordem if ordem in banco.ORDENACOES else banco.ORDENACAO_PADRAO
+
+
+def data_eh_valida(texto):
+    """Converte AAAA-MM-DD em data. Devolve None se o texto nao for uma data.
+
+    O navegador manda sempre nesse formato, mas um envio forjado pode trazer
+    qualquer coisa — e, sem esta conferencia, o split mais abaixo quebraria
+    com erro 500.
+    """
+    try:
+        return date.fromisoformat(texto)
+    except (ValueError, TypeError):
+        return None
 
 
 def valor_do_formulario(campo):
@@ -373,12 +387,21 @@ def editar_lancamento(lancamento_id=None):
         categoria = banco.buscar_categoria(usuario_id, int(categoria_id)) if categoria_id else None
         tipo = categoria["tipo"] if categoria else "entrada"
 
+        data_valida = data_eh_valida(data_mov)
+
         if categoria is None:
             flash("Escolha uma categoria.", "erro")
         elif valor <= 0:
             flash("Informe um valor maior que zero.", "erro")
+        elif valor > VALOR_MAXIMO:
+            flash(f"Valor alto demais. O limite por lançamento é "
+                  f"{formatar_reais(VALOR_MAXIMO)}.", "erro")
         elif not data_mov:
             flash("Escolha uma data.", "erro")
+        elif not data_valida:
+            flash("Data inválida.", "erro")
+        elif data_valida > hoje():
+            flash("A data não pode estar no futuro.", "erro")
         else:
             if atual:
                 banco.atualizar_lancamento(usuario_id, lancamento_id, tipo,

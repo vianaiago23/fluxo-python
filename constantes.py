@@ -24,6 +24,10 @@ PRATA = "#AEB8B2"
 TINTA = "#0F241A"
 CINZA = "#69786F"
 
+# Teto de um lancamento. Nao existe limite tecnico: serve para pegar erro de
+# digitacao, como somar zeros a mais, antes de sujar o historico.
+VALOR_MAXIMO = 10_000_000.0
+
 MESES = [
     "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
     "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",

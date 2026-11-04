@@ -168,6 +168,41 @@ def valor_do_formulario(campo):
         return 0.0
 
 
+def numero_do_formulario(campo):
+    """Le um numero que o proprio sistema escreveu no formulario.
+
+    Diferente de valor_do_formulario(), que le o que a pessoa digitou no
+    padrao brasileiro: aqui o separador decimal e o ponto, porque o valor foi
+    gerado pelo servidor na tela de revisao do extrato.
+    """
+    try:
+        return float(request.form.get(campo) or "")
+    except (TypeError, ValueError):
+        return None
+
+
+def motivo_para_recusar(valor, data_texto):
+    """Devolve por que o lancamento nao pode ser gravado, ou None se pode.
+
+    As duas portas de entrada passam por aqui — o formulario e a importacao
+    de extrato. Antes a conferencia existia so no formulario, e pela
+    importacao entrava lancamento com data no futuro.
+    """
+    if valor is None or valor <= 0:
+        return "Informe um valor maior que zero."
+    if valor > VALOR_MAXIMO:
+        return (f"Valor alto demais. O limite por lançamento é "
+                f"{formatar_reais(VALOR_MAXIMO)}.")
+    if not data_texto:
+        return "Escolha uma data."
+    data = data_eh_valida(data_texto)
+    if data is None:
+        return "Data inválida."
+    if data > hoje():
+        return "A data não pode estar no futuro."
+    return None
+
+
 def problema_na_senha_nova(senha, confirmacao):
     """Devolve o que há de errado com a senha nova, ou None se está tudo certo."""
     if len(senha) < SENHA_MINIMA:
@@ -387,21 +422,11 @@ def editar_lancamento(lancamento_id=None):
         categoria = banco.buscar_categoria(usuario_id, int(categoria_id)) if categoria_id else None
         tipo = categoria["tipo"] if categoria else "entrada"
 
-        data_valida = data_eh_valida(data_mov)
+        recusa = ("Escolha uma categoria." if categoria is None
+                  else motivo_para_recusar(valor, data_mov))
 
-        if categoria is None:
-            flash("Escolha uma categoria.", "erro")
-        elif valor <= 0:
-            flash("Informe um valor maior que zero.", "erro")
-        elif valor > VALOR_MAXIMO:
-            flash(f"Valor alto demais. O limite por lançamento é "
-                  f"{formatar_reais(VALOR_MAXIMO)}.", "erro")
-        elif not data_mov:
-            flash("Escolha uma data.", "erro")
-        elif not data_valida:
-            flash("Data inválida.", "erro")
-        elif data_valida > hoje():
-            flash("A data não pode estar no futuro.", "erro")
+        if recusa:
+            flash(recusa, "erro")
         else:
             if atual:
                 banco.atualizar_lancamento(usuario_id, lancamento_id, tipo,
@@ -576,6 +601,7 @@ def confirmar_importacao():
     """Grava só as linhas marcadas na tela de revisão."""
     usuario_id = session["usuario_id"]
     gravados = 0
+    recusados = 0
 
     for indice in request.form.getlist("incluir"):
         categoria_id = request.form.get(f"categoria_{indice}") or ""
@@ -584,18 +610,31 @@ def confirmar_importacao():
                      if categoria_id.isdigit() else None)
         if categoria is None:
             continue
+
+        valor = numero_do_formulario(f"valor_{indice}")
+        data_mov = request.form.get(f"data_{indice}") or ""
+        if motivo_para_recusar(valor, data_mov):
+            recusados += 1
+            continue
+
         banco.criar_lancamento(
             usuario_id,
             categoria["tipo"],
             categoria["id"],
-            float(request.form.get(f"valor_{indice}")),
-            request.form.get(f"data_{indice}"),
+            valor,
+            data_mov,
             request.form.get(f"descricao_{indice}") or "",
         )
         gravados += 1
 
-    if gravados:
+    if gravados and recusados:
+        flash(f"{gravados} lançamento(s) importado(s). {recusados} foram "
+              f"deixados de fora por data ou valor fora do aceito.", "ok")
+    elif gravados:
         flash(f"{gravados} lançamento(s) importado(s).", "ok")
+    elif recusados:
+        flash("Nenhum lançamento foi importado: a data ou o valor estavam "
+              "fora do aceito.", "erro")
     else:
         flash("Nenhum lançamento foi importado.", "erro")
     return redirect(url_for("painel"))

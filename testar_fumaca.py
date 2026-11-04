@@ -615,6 +615,39 @@ checar("grafico de saldo sem movimento gera PNG", vazio[:4] == b"\x89PNG")
 checar("grafico de saldo com movimento gera PNG", cheio[:4] == b"\x89PNG")
 checar("sem movimento o grafico vira aviso, nao eixo zerado", vazio != cheio)
 
+# --- a importacao recusa o mesmo que o formulario recusa
+
+def importar_uma(valor, data):
+    """Manda uma linha pela tela de revisao do extrato e devolve se gravou."""
+    with app.test_request_context():
+        antes = len(banco.listar_todos_lancamentos(1))
+    c.post("/importar/confirmar", data={
+        "incluir": "0", "categoria_0": id_entrada,
+        "valor_0": valor, "data_0": data, "descricao_0": "do extrato",
+    })
+    with app.test_request_context():
+        agora = banco.listar_todos_lancamentos(1)
+    return len(agora) > antes, agora
+
+amanha_iso = (constantes.hoje() + timedelta(days=1)).isoformat()
+gravou, _ = importar_uma("100.0", amanha_iso)
+checar("importacao recusa data no futuro", not gravou)
+
+gravou, _ = importar_uma("99999999.0", hoje)
+checar("importacao recusa valor acima do teto", not gravou)
+
+gravou, _ = importar_uma("abc", hoje)
+checar("importacao nao quebra com valor invalido", not gravou)
+
+gravou, _ = importar_uma("0", hoje)
+checar("importacao recusa valor zero", not gravou)
+
+gravou, lancs = importar_uma("7400.0", hoje)
+checar("importacao aceita linha valida", gravou)
+importado = [l for l in lancs if l["descricao"] == "do extrato"]
+checar("importacao grava o valor com ponto decimal, sem multiplicar",
+       len(importado) == 1 and abs(importado[0]["valor"] - 7400.0) < 0.01)
+
 print(f"\n{n - len(falhas)}/{n} verificacoes passaram")
 if falhas:
     print("FALHAS:", *falhas, sep="\n  - ")

@@ -491,6 +491,70 @@ checar("csv: data com traco no formato DD-MM-AAAA",
 checar("csv: data impossivel (31/02) e recusada",
        leitor.ler_csv("Data;Descrição;Valor\n31/02/2026;Mercado;-10,00\n") == [])
 
+
+# ======================================================================
+# ITEM 28 — importação de extrato em OFX
+# ======================================================================
+ofx_sgml = """OFXHEADER:100
+DATA:OFXSGML
+VERSION:102
+
+<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><BANKTRANLIST>
+<STMTTRN>
+<TRNTYPE>DEBIT
+<DTPOSTED>20260914120000[-3:BRT]
+<TRNAMT>-89.90
+<FITID>001
+<MEMO>Supermercado
+</STMTTRN>
+<STMTTRN>
+<TRNTYPE>CREDIT
+<DTPOSTED>20260915
+<TRNAMT>2500.00
+<FITID>002
+<MEMO>Pagamento cliente
+</STMTTRN>
+<STMTTRN>
+<TRNTYPE>DEBIT
+<DTPOSTED>20260916
+<TRNAMT>-15.00
+<FITID>003
+<MEMO>Estacionamento
+</STMTTRN>
+</BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>
+"""
+lidos = leitor.ler_ofx(ofx_sgml)
+checar("ofx le as 3 movimentacoes", len(lidos) == 3)
+checar("ofx valor negativo vira despesa", lidos[0]["tipo"] == "despesa" and lidos[0]["valor"] == 89.9)
+checar("ofx valor positivo vira entrada", lidos[1]["tipo"] == "entrada" and lidos[1]["valor"] == 2500.0)
+checar("ofx data com hora e fuso vira AAAA-MM-DD", lidos[0]["data"] == "2026-09-14")
+checar("ofx data simples (so AAAAMMDD)", lidos[1]["data"] == "2026-09-15")
+checar("ofx descricao vem do MEMO", lidos[1]["descricao"] == "Pagamento cliente")
+checar("ofx o valor guardado e sempre positivo", all(l["valor"] > 0 for l in lidos))
+
+ofx_xml = ("<OFX><STMTTRN><DTPOSTED>20260916</DTPOSTED><TRNAMT>-10.00</TRNAMT>"
+           "<NAME>Padaria</NAME></STMTTRN></OFX>")
+lidos = leitor.ler_ofx(ofx_xml)
+checar("ofx em XML (com tags de fechamento) tambem le", len(lidos) == 1 and lidos[0]["valor"] == 10.0)
+checar("ofx sem MEMO usa o NAME como descricao", lidos[0]["descricao"] == "Padaria")
+
+lidos = leitor.ler_ofx("<STMTTRN><DTPOSTED>20260917<TRNAMT>-50,00<MEMO>Virgula</STMTTRN>")
+checar("ofx com virgula decimal no valor", len(lidos) == 1 and lidos[0]["valor"] == 50.0)
+
+lidos = leitor.ler_ofx("<STMTTRN><DTPOSTED>20260917<TRNAMT>0.00<MEMO>Zero</STMTTRN>")
+checar("ofx ignora movimentacao de valor zero", lidos == [])
+
+lidos = leitor.ler_extrato("EXTRATO.OFX", ofx_sgml.encode("utf-8"))
+checar("ler_extrato escolhe OFX pela extensao (maiuscula tambem)", len(lidos) == 3)
+lidos = leitor.ler_extrato("extrato.ofx", ofx_sgml.replace("Supermercado", "Pão").encode("latin-1"))
+checar("ofx em latin-1 mantem o acento", lidos[0]["descricao"] == "Pão")
+
+checar("ofx sem nenhuma STMTTRN devolve lista vazia", leitor.ler_ofx("<OFX><BANKMSGSRSV1></BANKMSGSRSV1></OFX>") == [])
+
+# Fragilidade real do extrato.py: a data do OFX nao e conferida
+checar("ofx: data que nao e data e recusada",
+       leitor.ler_ofx("<STMTTRN><DTPOSTED>ABCDEFGH<TRNAMT>-5.00<MEMO>X</STMTTRN>") == [])
+
 print(f"\n{n - len(falhas)}/{n} verificacoes passaram")
 if falhas:
     print("FALHAS:", *falhas, sep="\n  - ")

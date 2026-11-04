@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block titulo %}{{ titulo }} — Fluxo{% endblock %}
+
+{% block corpo %}
+<div class="center-screen">
+  <div class="card login-card">
+    <div class="brand">
+      <img class="brand-mark" src="{{ url_for('static', filename='favicon.svg') }}" alt="">
+      <span class="brand-text">Flu<span>xo</span></span>
+    </div>
+
+    <h1 class="erro-codigo">{{ codigo }}</h1>
+    <p class="erro-titulo">{{ titulo }}</p>
+    <p class="texto-intro">{{ explicacao }}</p>
+
+    <a class="btn btn-primary btn-block" href="{{ url_for('painel') }}">Voltar ao início</a>
+  </div>
+</div>
+{% endblock %}

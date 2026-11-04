@@ -165,6 +165,29 @@ def problema_na_senha_nova(senha, confirmacao):
 
 # ------------------------------------------------------------------- acesso
 
+# ------------------------------------------------------------ erros
+
+@app.errorhandler(404)
+def pagina_nao_encontrada(_erro):
+    return render_template(
+        "erro.html", codigo=404, titulo="Página não encontrada",
+        explicacao="O endereço que você abriu não existe. Se você digitou à "
+                   "mão, confira se não faltou alguma parte.",
+    ), 404
+
+
+@app.errorhandler(500)
+def erro_interno(_erro):
+    # A mensagem técnica fica no registro do servidor, nunca na tela: ela
+    # revela caminho de arquivo e estrutura do banco para quem está olhando.
+    app.logger.exception("erro interno")
+    return render_template(
+        "erro.html", codigo=500, titulo="Alguma coisa quebrou do nosso lado",
+        explicacao="O erro foi registrado e nós vamos olhar. Os seus dados "
+                   "não foram perdidos — tente de novo em alguns instantes.",
+    ), 500
+
+
 @app.route("/entrar", methods=["GET", "POST"])
 def entrar():
     if "usuario_id" in session:

@@ -277,3 +277,8 @@ label,.rotulo{font-size:11px;color:var(--text-muted);text-transform:uppercase;le
 @media (max-width:760px){
   .login-bg{--size:100px;--radius:58vw;}
 }
+
+/* telas de erro (404 e 500) */
+.erro-codigo{margin:18px 0 2px;font-size:44px;line-height:1;font-weight:700;color:var(--income);}
+.erro-titulo{margin:0;font-size:15px;font-weight:600;}
+.erro-codigo + .erro-titulo + .texto-intro{margin-bottom:20px;}

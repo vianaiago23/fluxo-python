@@ -3,7 +3,9 @@
 Aplicação web feita em Python com Flask. O servidor monta as telas,
 guarda os dados no SQLite, desenha os gráficos e gera o relatório em PDF.
 """
-
+import hmac
+import math
+import os
 import hmac
 import os
 from functools import wraps
@@ -445,9 +447,13 @@ def importar():
 @app.post("/importar/confirmar")
 @exige_login
 def confirmar_importacao():
-    """Grava só as linhas marcadas na tela de revisão."""
+    """Grava só as linhas marcadas na tela de revisão.
+
+    Tudo ou nada: confere todas as linhas antes de gravar a primeira. Se uma
+    estiver com valor ou data inválidos, nada é gravado e a pessoa é avisada.
+    """
     usuario_id = session["usuario_id"]
-    gravados = 0
+    para_gravar = []
 
     for indice in request.form.getlist("incluir"):
         categoria_id = request.form.get(f"categoria_{indice}") or ""
@@ -456,18 +462,26 @@ def confirmar_importacao():
                      if categoria_id.isdigit() else None)
         if categoria is None:
             continue
-        banco.criar_lancamento(
-            usuario_id,
-            categoria["tipo"],
-            categoria["id"],
-            float(request.form.get(f"valor_{indice}")),
-            request.form.get(f"data_{indice}"),
-            request.form.get(f"descricao_{indice}") or "",
-        )
-        gravados += 1
 
-    if gravados:
-        flash(f"{gravados} lançamento(s) importado(s).", "ok")
+        try:
+            valor = float(request.form.get(f"valor_{indice}") or "")
+        except ValueError:
+            valor = 0.0
+        data_mov = leitor_extrato.converter_data(request.form.get(f"data_{indice}"))
+        if not math.isfinite(valor) or valor <= 0 or data_mov is None:
+            flash("Uma das linhas tem valor ou data inválidos. Nada foi importado: "
+                  "envie o arquivo de novo e confira as linhas.", "erro")
+            return redirect(url_for("importar"))
+
+        para_gravar.append((categoria, valor, data_mov,
+                            request.form.get(f"descricao_{indice}") or ""))
+
+    for categoria, valor, data_mov, descricao in para_gravar:
+        banco.criar_lancamento(usuario_id, categoria["tipo"], categoria["id"],
+                               valor, data_mov, descricao)
+
+    if para_gravar:
+        flash(f"{len(para_gravar)} lançamento(s) importado(s).", "ok")
     else:
         flash("Nenhum lançamento foi importado.", "erro")
     return redirect(url_for("painel"))

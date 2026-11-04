@@ -164,6 +164,13 @@ def renomear_negocio(usuario_id, nome):
     banco.commit()
 
 
+def conferir_senha(usuario_id, senha):
+    linha = conectar().execute(
+        "SELECT senha_hash FROM usuarios WHERE id = ?", (usuario_id,)
+    ).fetchone()
+    return bool(linha) and check_password_hash(linha["senha_hash"], senha)
+
+
 def buscar_usuario_por_email(email):
     return conectar().execute(
         "SELECT id, email, nome_negocio FROM usuarios WHERE email = ?",

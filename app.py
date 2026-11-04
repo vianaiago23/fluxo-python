@@ -361,6 +361,18 @@ def configuracoes():
             flash("Todos os dados foram apagados.", "ok")
             return redirect(url_for("perfil"))
 
+        elif acao == "trocar_senha":
+            senha_nova = request.form.get("senha_nova") or ""
+            problema = problema_na_senha_nova(senha_nova, request.form.get("confirmacao") or "")
+            # Sem conferir a atual, quem achasse a sessão aberta tomaria a conta.
+            if not banco.conferir_senha(usuario_id, request.form.get("senha_atual") or ""):
+                flash("A senha atual está incorreta.", "erro")
+            elif problema:
+                flash(problema, "erro")
+            else:
+                banco.trocar_senha(usuario_id, senha_nova)
+                flash("Senha alterada.", "ok")
+
         return redirect(url_for("configuracoes"))
 
     return render_template(

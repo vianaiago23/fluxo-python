@@ -81,6 +81,24 @@
   <p class="muted pequeno">Conectado como <b>{{ g.usuario['email'] }}</b></p>
   <a class="btn" href="{{ url_for('sair') }}">Sair da conta</a>
 
+  <h3 class="section-title">Trocar senha</h3>
+  <form method="post">
+    <input type="hidden" name="acao" value="trocar_senha">
+    <div class="field">
+      <label for="senha_atual">Senha atual</label>
+      <input id="senha_atual" name="senha_atual" type="password" autocomplete="current-password" required>
+    </div>
+    <div class="field">
+      <label for="senha_nova">Senha nova (6 ou mais caracteres)</label>
+      <input id="senha_nova" name="senha_nova" type="password" autocomplete="new-password" required>
+    </div>
+    <div class="field">
+      <label for="confirmacao">Confirme a senha nova</label>
+      <input id="confirmacao" name="confirmacao" type="password" autocomplete="new-password" required>
+    </div>
+    <button class="btn" type="submit">Trocar senha</button>
+  </form>
+
   <div class="form-acoes">
     <a class="btn btn-primary" href="{{ url_for('painel') }}">Concluído</a>
   </div>

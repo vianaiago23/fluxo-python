@@ -216,6 +216,37 @@ checar("token vale ate o ultimo dia da validade", anonimo.get(f"/recuperar/{toke
 r = anonimo.post("/recuperar/inventado", data={"senha": "invasor123", "confirmacao": "invasor123"})
 checar("token inventado recusado", r.status_code == 400 and not consegue_entrar("rec@a.com", "invasor123"))
 
+# --- troca de senha em Configurações
+c_troca = app.test_client()
+c_troca.post("/entrar", data={"modo": "cadastro", "email": "troca@a.com", "senha": "senha-antiga"})
+
+
+def trocar(atual, nova, confirmacao):
+    r = c_troca.post("/configuracoes", follow_redirects=True, data={
+        "acao": "trocar_senha", "senha_atual": atual, "senha_nova": nova, "confirmacao": confirmacao})
+    return r.get_data(as_text=True)
+
+
+corpo = trocar("errada", "senha-nova", "senha-nova")
+checar("senha atual errada recusada",
+       "senha atual está incorreta" in corpo and not consegue_entrar("troca@a.com", "senha-nova"))
+corpo = trocar("senha-antiga", "senha-nova", "outra-coisa")
+checar("confirmacao diferente recusada",
+       "confirmação" in corpo and not consegue_entrar("troca@a.com", "senha-nova"))
+corpo = trocar("senha-antiga", "12345", "12345")
+checar("senha curta demais recusada",
+       "6 ou mais" in corpo and not consegue_entrar("troca@a.com", "12345"))
+checar("senha antiga segue valendo apos as recusas", consegue_entrar("troca@a.com", "senha-antiga"))
+
+with app.test_request_context():
+    token = banco.criar_token(banco.buscar_usuario_por_email("troca@a.com")["id"])
+corpo = trocar("senha-antiga", "senha-nova", "senha-nova")
+checar("troca de senha confirma o sucesso", "Senha alterada" in corpo)
+checar("senha antiga nao entra apos a troca", not consegue_entrar("troca@a.com", "senha-antiga"))
+checar("senha nova entra apos a troca", consegue_entrar("troca@a.com", "senha-nova"))
+checar("trocar a senha cancela link de recuperacao pendente",
+       app.test_client().get(f"/recuperar/{token}").status_code == 400)
+
 print(f"\n{n - len(falhas)}/{n} verificacoes passaram")
 if falhas:
     print("FALHAS:", *falhas, sep="\n  - ")

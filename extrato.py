@@ -7,7 +7,9 @@ valores em formatos diferentes.
 
 import csv
 import io
+import math
 import re
+from datetime import date
 
 PALAVRAS_DATA = ("data", "date")
 PALAVRAS_DESCRICAO = ("desc", "histor", "memo", "lancamento", "lançamento")
@@ -15,19 +17,22 @@ PALAVRAS_VALOR = ("valor", "amount", "montante")
 
 
 def converter_data(texto):
-    """Aceita 2026-09-14, 14/09/2026 e 14/09/26. Devolve 'AAAA-MM-DD' ou None."""
+    """Aceita 2026-09-14, 14/09/2026, 14-09-2026 e 14/09/26. Devolve 'AAAA-MM-DD' ou None."""
     texto = (texto or "").strip()
     if achado := re.match(r"^(\d{4})-(\d{2})-(\d{2})", texto):
         ano, mes, dia = achado.groups()
-    elif achado := re.match(r"^(\d{2})/(\d{2})/(\d{4})", texto):
+    elif achado := re.match(r"^(\d{2})[/-](\d{2})[/-](\d{4})", texto):
         dia, mes, ano = achado.groups()
     elif achado := re.match(r"^(\d{2})/(\d{2})/(\d{2})$", texto):
         dia, mes, ano2 = achado.groups()
         ano = f"20{ano2}"
     else:
         return None
+    try:
+        date(int(ano), int(mes), int(dia))
+    except ValueError:
+        return None   # data que não existe, como 31/02
     return f"{ano}-{mes}-{dia}"
-
 
 def converter_valor(texto):
     """Aceita 'R$ 1.234,56', '-1234.56' e '(1.234,56)'. Devolve float ou None."""
@@ -44,6 +49,8 @@ def converter_valor(texto):
         valor = float(texto)
     except ValueError:
         return None
+    if not math.isfinite(valor):
+        return None   # float() aceita "nan" e "inf", que não são dinheiro
     return -valor if negativo else valor
 
 
@@ -105,11 +112,12 @@ def ler_ofx(texto):
             return achado.group(1).strip() if achado else ""
 
         carimbo = campo("DTPOSTED")
+        data = converter_data(f"{carimbo[0:4]}-{carimbo[4:6]}-{carimbo[6:8]}")
         valor = converter_valor(campo("TRNAMT"))
-        if len(carimbo) < 8 or valor is None or valor == 0:
+        if data is None or valor is None or valor == 0:
             continue
         movimentos.append({
-            "data": f"{carimbo[0:4]}-{carimbo[4:6]}-{carimbo[6:8]}",
+            "data": data,
             "descricao": campo("MEMO") or campo("NAME"),
             "valor": abs(valor),
             "tipo": "entrada" if valor > 0 else "despesa",

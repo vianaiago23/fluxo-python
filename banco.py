@@ -14,10 +14,11 @@ As duas bibliotecas seguem a mesma interface (DB-API 2.0), então o SQL abaixo
 não muda de um caso para o outro.
 """
 
+import hashlib
 import os
 import secrets
 import sqlite3
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import turso_serverless
@@ -81,8 +82,7 @@ CREATE INDEX IF NOT EXISTS idx_lancamentos_usuario_data
     ON lancamentos (usuario_id, data);
 """
 
-# O token vale até o fim do dia seguinte ao pedido.
-DIAS_VALIDADE_TOKEN = 1
+MINUTOS_VALIDADE_TOKEN = 60
 
 
 # ------------------------------------------------------------------ conexão
@@ -180,15 +180,25 @@ def buscar_usuario_por_email(email):
 
 # ----------------------------------------------------- recuperação de senha
 
+def _instante(minutos=0):
+    """Agora + minutos em texto ISO. Sempre em UTC, para dar para comparar os textos."""
+    momento = datetime.now(timezone.utc) + timedelta(minutes=minutos)
+    return momento.isoformat(timespec="seconds")
+
+
+def _hash_do_token(token):
+    """O banco guarda só o hash: quem lê o banco não consegue usar o link."""
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
 def criar_token(usuario_id):
-    """Gera o token de recuperação. Um pedido novo cancela os anteriores."""
+    """Gera o token de recuperação e devolve o texto que vai no link."""
     token = secrets.token_urlsafe(32)   # imprevisível, ao contrário do random
-    expira_em = (hoje() + timedelta(days=DIAS_VALIDADE_TOKEN)).isoformat()
     banco = conectar()
     banco.execute("DELETE FROM tokens_recuperacao WHERE usuario_id = ?", (usuario_id,))
     banco.execute(
         "INSERT INTO tokens_recuperacao (usuario_id, token, expira_em) VALUES (?, ?, ?)",
-        (usuario_id, token, expira_em),
+        (usuario_id, _hash_do_token(token), _instante(MINUTOS_VALIDADE_TOKEN)),
     )
     banco.commit()
     return token
@@ -196,14 +206,14 @@ def criar_token(usuario_id):
 
 def buscar_token(token):
     return conectar().execute(
-        "SELECT * FROM tokens_recuperacao WHERE token = ?", (token,)
+        "SELECT * FROM tokens_recuperacao WHERE token = ?", (_hash_do_token(token),)
     ).fetchone()
 
 
 def buscar_token_valido(token):
     """Devolve o token só se ele existe, não foi usado e não expirou."""
     linha = buscar_token(token)
-    if linha and not linha["usado"] and linha["expira_em"] >= hoje().isoformat():
+    if linha and not linha["usado"] and linha["expira_em"] > _instante():
         return linha
     return None
 
@@ -236,8 +246,8 @@ def redefinir_senha(token, senha_nova):
     banco = conectar()
     # O "usado = 0" garante que, em dois envios simultâneos, só um passe.
     cursor = banco.execute(
-        "UPDATE tokens_recuperacao SET usado = 1 WHERE token = ? AND usado = 0",
-        (token,),
+        "UPDATE tokens_recuperacao SET usado = 1 WHERE id = ? AND usado = 0",
+        (linha["id"],),
     )
     if cursor.rowcount != 1:
         banco.rollback()

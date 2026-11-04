@@ -45,8 +45,8 @@ Crie as funções `criar_token(usuario_id)` e `buscar_token(token)`.
 
 **Atenção:** gere o token com `secrets.token_urlsafe(32)`, nunca com
 `random` — o `random` é previsível e dá para adivinhar o próximo. Guarde a
-data de expiração como texto ISO, igual ao resto do sistema, e use `hoje()`
-do `constantes.py` para a data.
+expiração como texto ISO, com data e hora em UTC: o link vale 1 hora, e o
+`hoje()` só guarda o dia. No banco fica só o hash do token, nunca o texto do link.
 
 **Pronto quando:** apagar um usuário apaga os tokens dele junto (teste isso),
 e `criar_token()` devolve textos diferentes a cada chamada.

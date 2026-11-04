@@ -34,7 +34,7 @@ def checar(rotulo, condicao):
 
 print("modo:", "nuvem" if banco.NA_NUVEM else "local (arquivo)")
 checar("banco local, nao na nuvem", banco.NA_NUVEM is False)
-from datetime import datetime, timedelta  # noqa: E402
+from datetime import datetime  # noqa: E402
 checar("hoje() usa o fuso de Brasilia",
        constantes.hoje() == datetime.now(constantes.FUSO_BRASIL).date())
 
@@ -138,7 +138,10 @@ with app.test_request_context():
     linha_token = banco.buscar_token(token_2)
     checar("buscar_token acha o dono do token", linha_token["usuario_id"] == id_token)
     checar("token novo nasce sem uso", linha_token["usado"] == 0)
-    checar("token novo ainda nao expirou", linha_token["expira_em"] > constantes.hoje().isoformat())
+    checar("token novo ainda nao expirou", banco.buscar_token_valido(token_2) is not None)
+    checar("token vale por no maximo 1 hora", linha_token["expira_em"] <= banco._instante(60))
+    checar("banco guarda so o hash do token", linha_token["token"] != token_2)
+    checar("o valor guardado no banco nao abre o link", banco.buscar_token(linha_token["token"]) is None)
     checar("buscar_token nao acha token inventado", banco.buscar_token("inventado") is None)
     conexao = banco.conectar()
     conexao.execute("DELETE FROM usuarios WHERE id = ?", (id_token,))
@@ -200,18 +203,19 @@ checar("token ja usado nem abre o formulario", anonimo.get(f"/recuperar/{token}"
 with app.test_request_context():
     token = banco.criar_token(id_rec)
     conexao = banco.conectar()
-    ontem = (constantes.hoje() - timedelta(days=1)).isoformat()
-    conexao.execute("UPDATE tokens_recuperacao SET expira_em = ? WHERE token = ?", (ontem, token))
+    conexao.execute("UPDATE tokens_recuperacao SET expira_em = ? WHERE usuario_id = ?",
+                    (banco._instante(-1), id_rec))
     conexao.commit()
 r = anonimo.post(f"/recuperar/{token}", data={"senha": "invasor123", "confirmacao": "invasor123"})
-checar("token expirado recusado", r.status_code == 400 and not consegue_entrar("rec@a.com", "invasor123"))
+checar("token expirado ha um minuto recusado",
+       r.status_code == 400 and not consegue_entrar("rec@a.com", "invasor123"))
 
 with app.test_request_context():
     conexao = banco.conectar()
-    conexao.execute("UPDATE tokens_recuperacao SET expira_em = ? WHERE token = ?",
-                    (constantes.hoje().isoformat(), token))
+    conexao.execute("UPDATE tokens_recuperacao SET expira_em = ? WHERE usuario_id = ?",
+                    (banco._instante(1), id_rec))
     conexao.commit()
-checar("token vale ate o ultimo dia da validade", anonimo.get(f"/recuperar/{token}").status_code == 200)
+checar("token vale ate o ultimo minuto da validade", anonimo.get(f"/recuperar/{token}").status_code == 200)
 
 r = anonimo.post("/recuperar/inventado", data={"senha": "invasor123", "confirmacao": "invasor123"})
 checar("token inventado recusado", r.status_code == 400 and not consegue_entrar("rec@a.com", "invasor123"))

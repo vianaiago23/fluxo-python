@@ -635,6 +635,73 @@ antes = total_lancamentos(id_imp)
 r = confirmar(cli_imp, [("10.00", "2026-09-14"), ("5.00", "2026-09-15")])
 checar("confirmar com tudo certo grava as 2 linhas", sem_estouro(r) and total_lancamentos(id_imp) == antes + 2)
 
+
+# ======================================================================
+# ITEM 30 — repetição de lançamento (campo "repetir")
+# ======================================================================
+cli_rep, id_rep = conta_limpa("repete@a.com")
+with app.test_request_context():
+    cat_rep = banco.listar_categorias(id_rep, "despesa")[0]["id"]
+
+
+def lancar(cliente, data, repetir, descricao, valor="100,00"):
+    dados = {"categoria_id": cat_rep, "valor": valor, "data": data,
+             "descricao": descricao, "repetir": repetir}
+    return tentar(lambda: cliente.post("/lancamento/novo", data=dados))
+
+
+lancar(cli_rep, "2026-03-15", "3", "rep3")
+checar("repetir 3: cria 3 lancamentos", len(datas_de(id_rep, "rep3")) == 3)
+checar("repetir 3: um em cada mes seguinte, no mesmo dia",
+       datas_de(id_rep, "rep3") == ["2026-03-15", "2026-04-15", "2026-05-15"])
+
+lancar(cli_rep, "2026-11-15", "3", "virada")
+checar("repetir atravessa a virada do ano",
+       datas_de(id_rep, "virada") == ["2026-11-15", "2026-12-15", "2027-01-15"])
+
+lancar(cli_rep, "2026-06-10", "1", "rep1")
+checar("repetir 1: cria so 1 lancamento", len(datas_de(id_rep, "rep1")) == 1)
+lancar(cli_rep, "2026-06-10", "", "repvazio")
+checar("repetir vazio: cria so 1 lancamento", len(datas_de(id_rep, "repvazio")) == 1)
+lancar(cli_rep, "2026-06-10", "0", "rep0")
+checar("repetir 0: cria 1 lancamento", len(datas_de(id_rep, "rep0")) == 1)
+lancar(cli_rep, "2026-06-10", "-5", "repneg")
+checar("repetir negativo: cria 1 lancamento", len(datas_de(id_rep, "repneg")) == 1)
+
+lancar(cli_rep, "2026-01-10", "100", "rep100")
+datas = datas_de(id_rep, "rep100")
+checar("repetir 100: o sistema limita a 24 lancamentos", len(datas) == 24)
+checar("repetir 24: o ultimo cai 23 meses depois", datas[-1] == "2027-12-10")
+
+lancar(cli_rep, "2026-04-05", "2", "mesmovalor", valor="1.234,56")
+with app.test_request_context():
+    linhas = [l for l in banco.listar_todos_lancamentos(id_rep) if l["descricao"] == "mesmovalor"]
+checar("repetir: todos com o mesmo valor, tipo e categoria",
+       len(linhas) == 2 and all(l["valor"] == 1234.56 and l["tipo"] == "despesa"
+                                and l["categoria_id"] == cat_rep for l in linhas))
+
+# O caso do dia 31. HOJE o código usa o ÚLTIMO DIA do mês quando o dia não existe
+# (31/01 -> 28/02) e volta ao dia 31 nos meses que têm. Se o grupo decidir outra
+# regra, é só mudar as datas esperadas abaixo.
+lancar(cli_rep, "2026-01-31", "4", "dia31")
+checar("dia 31: fevereiro cai no ultimo dia do mes (28)",
+       datas_de(id_rep, "dia31") == ["2026-01-31", "2026-02-28", "2026-03-31", "2026-04-30"])
+lancar(cli_rep, "2028-01-31", "2", "bissexto")
+checar("dia 31: em ano bissexto fevereiro cai no dia 29",
+       datas_de(id_rep, "bissexto") == ["2028-01-31", "2028-02-29"])
+lancar(cli_rep, "2026-01-30", "2", "dia30")
+checar("dia 30: fevereiro tambem cai no ultimo dia", datas_de(id_rep, "dia30") == ["2026-01-30", "2026-02-28"])
+
+# Entradas que o formulário não deveria deixar estourar
+antes = total_lancamentos(id_rep)
+for nome, repetir, data in (("repetir que nao e numero", "abc", "2026-05-01"),
+                            ("repetir com decimal", "2.5", "2026-05-01"),
+                            ("data que nao e data", "1", "abc"),
+                            ("data com mes 13", "1", "2026-13-45")):
+    r = lancar(cli_rep, data, repetir, "estranho")
+    checar(f"{nome}: nao estoura erro", sem_estouro(r))
+checar("entradas estranhas nao gravam lancamento", total_lancamentos(id_rep) == antes)
+
 print(f"\n{n - len(falhas)}/{n} verificacoes passaram")
 if falhas:
     print("FALHAS:", *falhas, sep="\n  - ")

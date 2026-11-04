@@ -122,6 +122,11 @@ def problema_na_senha_nova(senha, confirmacao):
 
 # ------------------------------------------------------------------- acesso
 
+def numero_do_formulario(campo):
+    """Lê um número inteiro do formulário. Devolve None se faltar ou não for número."""
+    bruto = (request.form.get(campo) or "").strip()
+    return int(bruto) if bruto.isdecimal() else None
+
 @app.route("/entrar", methods=["GET", "POST"])
 def entrar():
     if "usuario_id" in session:
@@ -371,16 +376,20 @@ def configuracoes():
             else:
                 flash("Informe o nome da categoria.", "erro")
 
-        elif acao == "renomear_categoria":
-            banco.renomear_categoria(usuario_id, int(request.form["categoria_id"]),
-                                     request.form.get("nome", ""))
+                elif acao == "renomear_categoria":
+            categoria_id = numero_do_formulario("categoria_id")
+            if categoria_id is not None:
+                banco.renomear_categoria(usuario_id, categoria_id, request.form.get("nome", ""))
 
         elif acao == "cor_categoria":
-            banco.trocar_cor_categoria(usuario_id, int(request.form["categoria_id"]),
-                                       request.form.get("cor", PALETA[0]))
+            categoria_id = numero_do_formulario("categoria_id")
+            if categoria_id is not None:
+                banco.trocar_cor_categoria(usuario_id, categoria_id,
+                                           request.form.get("cor", PALETA[0]))
 
         elif acao == "excluir_categoria":
-            if not banco.excluir_categoria(usuario_id, int(request.form["categoria_id"])):
+            categoria_id = numero_do_formulario("categoria_id")
+            if categoria_id is not None and not banco.excluir_categoria(usuario_id, categoria_id):
                 flash("Essa categoria tem lançamentos e não pode ser excluída. "
                       "Edite ou remova os lançamentos primeiro.", "erro")
 

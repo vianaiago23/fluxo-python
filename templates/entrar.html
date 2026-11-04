@@ -42,7 +42,7 @@
 
     {% if modo == 'cadastro' %}
       <p class="dica">Use uma senha com 6 ou mais caracteres.</p>
-    {% else %}
+    {% elif recuperacao_disponivel %}
       <p class="dica"><a href="{{ url_for('recuperar') }}">Esqueci minha senha</a></p>
     {% endif %}
   </form>

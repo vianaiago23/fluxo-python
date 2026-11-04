@@ -161,6 +161,19 @@ with app.test_request_context():
 anonimo = app.test_client()
 checar("tela de recuperar abre", anonimo.get("/recuperar").status_code == 200)
 checar("login tem link para recuperar", "/recuperar" in anonimo.get("/entrar").get_data(as_text=True))
+
+# publicado, sem envio de e-mail, a recuperação fica fora do ar
+modulo_app = sys.modules["app"]
+modulo_app.RECUPERACAO_DISPONIVEL = False
+checar("sem envio de e-mail, o login nao oferece o link",
+       "/recuperar" not in anonimo.get("/entrar").get_data(as_text=True))
+r = anonimo.post("/recuperar", data={"email": "rec@a.com"})
+checar("sem envio de e-mail, /recuperar volta para o login",
+       r.status_code == 302 and "/entrar" in r.headers.get("Location", ""))
+with app.test_request_context():
+    checar("sem envio de e-mail, nenhum token e criado", not banco.pedido_recente(id_rec))
+modulo_app.RECUPERACAO_DISPONIVEL = True
+
 r_existe = anonimo.post("/recuperar", data={"email": "rec@a.com"})
 r_nao_existe = anonimo.post("/recuperar", data={"email": "ninguem@a.com"})
 checar("recuperar mostra a mensagem combinada",

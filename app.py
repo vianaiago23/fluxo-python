@@ -24,6 +24,10 @@ NA_VERCEL = bool(os.environ.get("VERCEL"))
 MENSAGEM_RECUPERACAO = "Se existir uma conta com esse e-mail, enviamos as instruções."
 SENHA_MINIMA = 6
 
+# Publicado, o sistema ainda não envia e-mail: oferecer a recuperação seria
+# prometer uma mensagem que nunca chega. Quando o envio existir, é só ligar.
+RECUPERACAO_DISPONIVEL = not NA_VERCEL
+
 segredo = os.environ.get("FLUXO_SEGREDO")
 if not segredo:
     if NA_VERCEL:
@@ -147,7 +151,8 @@ def entrar():
                 abrir_sessao(usuario_id)
                 return redirect(url_for("painel"))
 
-    return render_template("entrar.html", modo=modo)
+    return render_template("entrar.html", modo=modo,
+                           recuperacao_disponivel=RECUPERACAO_DISPONIVEL)
 
 
 @app.route("/sair")
@@ -160,6 +165,8 @@ def sair():
 def recuperar():
     if "usuario_id" in session:
         return redirect(url_for("painel"))
+    if not RECUPERACAO_DISPONIVEL:
+        return redirect(url_for("entrar"))
 
     if request.method == "POST":
         usuario = banco.buscar_usuario_por_email(request.form.get("email") or "")

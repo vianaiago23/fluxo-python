@@ -116,8 +116,11 @@ para o script conferir que ela subiu.
 **Atenção:** o `.env.local` tem o token do banco. Nunca commite esse arquivo —
 já está no `.gitignore`, só não force.
 
-**Pronto quando:** o script listar a tabela nova e a recuperação de senha
-funcionar no site publicado, não só na sua máquina.
+**Pronto quando:** o script listar a tabela nova.
+
+A recuperação de senha fica fora do ar no site publicado enquanto o sistema não
+enviar e-mail (`RECUPERACAO_DISPONIVEL` no `app.py`). Na sua máquina ela funciona,
+e o link aparece no terminal.
 
 ---
 

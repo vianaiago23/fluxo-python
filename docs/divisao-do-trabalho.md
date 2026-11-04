@@ -51,7 +51,7 @@ da Vercel e do banco hospedado, que estão só com ele.
 Arquivos: `app.py`, `banco.py`, `templates/`. É a frente mais pesada: mexe no
 banco e no login. Comece lendo como a função `entrar()` funciona hoje.
 
-11. Tela de "esqueci minha senha" e a rota que recebe o e-mail *(feito)*
+11. Tela de "esqueci minha senha" e a rota que recebe o e-mail *(feito; no site publicado, só entra no ar quando o sistema enviar e-mail)*
 12. Tabela de token temporário no banco: guarda o código, de quem é e quando expira *(feito)*
 13. Validação do token e troca efetiva da senha *(feito)*
 14. Teste automático da recuperação de senha, incluindo token expirado *(feito)*

@@ -67,3 +67,41 @@ def barras_saldo(rotulos, valores):
         lambda valor, _pos: f"{valor/1000:.0f} mil" if abs(valor) >= 1000 else f"{valor:.0f}"
     )
     return _para_png(figura)
+
+
+def barras_ano(rotulos, entradas, despesas):
+    """Entradas e despesas de cada mês lado a lado: verde e vermelho.
+
+    O eixo dos valores começa sempre em zero. Começando noutro ponto, uma
+    diferença pequena entre dois meses pareceria enorme.
+    """
+    figura, eixo = plt.subplots(figsize=(9.4, 2.6))
+
+    if not any(entradas) and not any(despesas):
+        eixo.text(0.5, 0.5, "Sem lançamentos neste ano", ha="center", va="center",
+                  fontsize=9, color=CINZA, transform=eixo.transAxes)
+        eixo.axis("off")
+        return _para_png(figura)
+
+    posicoes = range(len(rotulos))
+    largura = 0.38
+    eixo.bar([p - largura / 2 for p in posicoes], entradas, width=largura,
+             color=VERDE, label="Entradas", zorder=3)
+    eixo.bar([p + largura / 2 for p in posicoes], despesas, width=largura,
+             color=VERMELHO, label="Despesas", zorder=3)
+
+    eixo.set_xticks(list(posicoes), rotulos)
+    eixo.set_ylim(bottom=0)
+    eixo.grid(axis="y", color="#E6EBE8", linewidth=0.8, zorder=0)
+    eixo.set_axisbelow(True)
+
+    for lado in ("top", "right", "left", "bottom"):
+        eixo.spines[lado].set_visible(False)
+
+    eixo.tick_params(axis="both", length=0, labelsize=9, colors=CINZA)
+    eixo.yaxis.set_major_formatter(
+        lambda valor, _pos: f"{valor/1000:.0f} mil" if abs(valor) >= 1000 else f"{valor:.0f}"
+    )
+    eixo.legend(loc="upper left", bbox_to_anchor=(0, 1.18), ncol=2, frameon=False,
+                fontsize=8.5, labelcolor=CINZA, handlelength=1, handleheight=1)
+    return _para_png(figura)

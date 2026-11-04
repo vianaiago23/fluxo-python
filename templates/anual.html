@@ -20,6 +20,9 @@
     <a class="btn btn-ghost pequeno" href="{{ url_for('painel') }}">&larr; Voltar ao painel</a>
   </div>
 
+  <img class="grafico-largo" src="{{ url_for('grafico', tipo='anual', ano=ano) }}"
+       alt="Gráfico de barras com as entradas e as despesas de cada mês de {{ ano }}">
+
   <div class="tabela-anual-wrap">
     <table class="tabela-anual">
       <thead>

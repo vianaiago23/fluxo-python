@@ -557,6 +557,11 @@ def grafico(tipo):
     elif tipo == "saldo":
         rotulos, valores = analise.serie_saldo(usuario_id, ano, mes)
         imagem = graficos.barras_saldo(rotulos, valores)
+    elif tipo == "anual":
+        meses, _ = analise.resumo_do_ano(usuario_id, ano_escolhido())
+        imagem = graficos.barras_ano([m["curto"] for m in meses],
+                                     [m["entradas"] for m in meses],
+                                     [m["despesas"] for m in meses])
     else:
         return "Gráfico desconhecido", 404
 

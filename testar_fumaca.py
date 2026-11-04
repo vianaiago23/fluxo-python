@@ -458,6 +458,71 @@ with app.test_request_context():
     checar("consulta com categoria alheia volta vazia",
            banco.listar_lancamentos(id_intruso, categoria_id=cat_entrada) == [])
 
+# --- relatório anual
+import analise  # noqa: E402
+
+c_anual = app.test_client()
+c_anual.post("/entrar", data={"modo": "cadastro", "email": "anual@a.com", "senha": "senha123"})
+c_anual.post("/perfil", data={"perfil": "generico"})
+with app.test_request_context():
+    id_anual = banco.buscar_usuario_por_email("anual@a.com")["id"]
+    entrada_anual = banco.listar_categorias(id_anual, "entrada")[0]["id"]
+    despesa_anual = banco.listar_categorias(id_anual, "despesa")[0]["id"]
+for categoria, valor, data_mov in ((entrada_anual, "1.000,10", "2024-01-01"),
+                                   (entrada_anual, "1.500,25", "2024-01-31"),
+                                   (despesa_anual, "300,40", "2024-01-15"),
+                                   (despesa_anual, "999,99", "2024-06-10"),
+                                   (entrada_anual, "2.000,00", "2024-12-31"),
+                                   (entrada_anual, "7.777,00", "2023-12-31"),    # ano anterior
+                                   (despesa_anual, "8.888,00", "2025-01-01")):   # ano seguinte
+    c_anual.post("/lancamento/novo", data={"categoria_id": categoria, "valor": valor,
+                                           "data": data_mov, "descricao": "", "repetir": "1"})
+
+with app.test_request_context():
+    meses_vazios, total_vazio = analise.resumo_do_ano(id_anual, 2010)
+    meses_2024, total_2024 = analise.resumo_do_ano(id_anual, 2024)
+    meses_intruso, total_intruso = analise.resumo_do_ano(id_intruso, 2024)
+    do_ano = [l for l in banco.listar_todos_lancamentos(id_anual) if l["data"].startswith("2024")]
+    por_mes_somar_mes = [(banco.somar_mes(id_anual, 2024, m, "entrada"),
+                          banco.somar_mes(id_anual, 2024, m, "despesa")) for m in range(1, 13)]
+
+
+def zerado(meses, total):
+    return (len(meses) == 12 and [m["mes"] for m in meses] == list(range(1, 13))
+            and all(m["entradas"] == m["despesas"] == m["saldo"] == 0 for m in meses)
+            and total == {"entradas": 0, "despesas": 0, "saldo": 0})
+
+
+checar("ano sem lancamento devolve doze meses zerados", zerado(meses_vazios, total_vazio))
+checar("ano com lancamento tambem traz os doze meses", len(meses_2024) == 12)
+checar("mes sem lancamento aparece zerado",
+       meses_2024[2]["entradas"] == 0 and meses_2024[2]["despesas"] == 0)
+checar("cada mes bate com somar_mes",
+       [(round(m["entradas"], 2), round(m["despesas"], 2)) for m in meses_2024]
+       == [(round(e, 2), round(d, 2)) for e, d in por_mes_somar_mes])
+checar("total de entradas bate com a soma dos lancamentos",
+       total_2024["entradas"] == round(sum(l["valor"] for l in do_ano if l["tipo"] == "entrada"), 2)
+       == 4500.35)
+checar("total de despesas bate com a soma dos lancamentos",
+       total_2024["despesas"] == round(sum(l["valor"] for l in do_ano if l["tipo"] == "despesa"), 2)
+       == 1300.39)
+checar("saldo do ano e entradas menos despesas", total_2024["saldo"] == 3199.96)
+checar("primeiro e ultimo dia do ano entram, anos vizinhos nao",
+       meses_2024[0]["entradas"] == 2500.35 and meses_2024[11]["entradas"] == 2000.0)
+checar("um usuario nao ve o ano do outro", zerado(meses_intruso, total_intruso))
+
+r = c_anual.get("/anual?ano=2024")
+corpo = r.get_data(as_text=True)
+checar("tela do relatorio anual abre", r.status_code == 200)
+checar("tela mostra os doze meses", all(nome in corpo for nome in constantes.MESES))
+checar("tela mostra o total do ano", "4.500,35" in corpo and "3.199,96" in corpo)
+checar("tela do outro usuario nao mostra os valores",
+       "4.500,35" not in c_intruso.get("/anual?ano=2024").get_data(as_text=True))
+checar("ano invalido na URL nao quebra a tela", c_anual.get("/anual?ano=lixo").status_code == 200)
+for ano_grafico in ("2024", "2010"):
+    r = c_anual.get(f"/grafico/anual.png?ano={ano_grafico}")
+    checar(f"grafico anual de {ano_grafico} gera PNG", r.status_code == 200 and r.data[:4] == b"\x89PNG")
+
 print(f"\n{n - len(falhas)}/{n} verificacoes passaram")
 if falhas:
     print("FALHAS:", *falhas, sep="\n  - ")

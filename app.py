@@ -260,18 +260,28 @@ def editar_lancamento(lancamento_id=None):
         return redirect(url_for("painel"))
 
     if request.method == "POST":
-        categoria_id = request.form.get("categoria_id")
+                categoria_id = request.form.get("categoria_id") or ""
         valor = valor_do_formulario("valor")
-        data_mov = request.form.get("data") or ""
+        data_mov = leitor_extrato.converter_data(request.form.get("data"))
         descricao = request.form.get("descricao") or ""
-        repetir = int(request.form.get("repetir") or 1)
+        try:
+            repetir = int(request.form.get("repetir") or 1)
+        except ValueError:
+            repetir = None
 
         # o tipo não é escolhido à mão: vem da categoria selecionada
-        categoria = banco.buscar_categoria(usuario_id, int(categoria_id)) if categoria_id else None
+        categoria = (banco.buscar_categoria(usuario_id, int(categoria_id))
+                     if categoria_id.isdecimal() else None)
         tipo = categoria["tipo"] if categoria else "entrada"
 
         if categoria is None:
             flash("Escolha uma categoria.", "erro")
+        elif valor <= 0:
+            flash("Informe um valor maior que zero.", "erro")
+        elif data_mov is None:
+            flash("Escolha uma data válida.", "erro")
+        elif repetir is None:
+            flash("Em \"repetir\", informe quantos meses seguidos como um número inteiro.", "erro")
         elif valor <= 0:
             flash("Informe um valor maior que zero.", "erro")
         elif not data_mov:

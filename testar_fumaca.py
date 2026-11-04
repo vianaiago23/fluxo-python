@@ -128,6 +128,23 @@ checar("senha errada barrada", r.status_code == 200 and "incorretos" in r.get_da
 r = c3.get("/")
 checar("sem login redireciona para /entrar", "/entrar" in r.headers.get("Location", ""))
 
+# --- tokens de recuperação
+with app.test_request_context():
+    id_token = banco.criar_usuario("token@a.com", "senha123")
+    token_1 = banco.criar_token(id_token)
+    token_2 = banco.criar_token(id_token)
+    checar("criar_token gera textos diferentes", token_1 != token_2)
+    checar("pedido novo cancela o token anterior", banco.buscar_token(token_1) is None)
+    linha_token = banco.buscar_token(token_2)
+    checar("buscar_token acha o dono do token", linha_token["usuario_id"] == id_token)
+    checar("token novo nasce sem uso", linha_token["usado"] == 0)
+    checar("token novo ainda nao expirou", linha_token["expira_em"] > constantes.hoje().isoformat())
+    checar("buscar_token nao acha token inventado", banco.buscar_token("inventado") is None)
+    conexao = banco.conectar()
+    conexao.execute("DELETE FROM usuarios WHERE id = ?", (id_token,))
+    conexao.commit()
+    checar("apagar o usuario apaga os tokens dele", banco.buscar_token(token_2) is None)
+
 print(f"\n{n - len(falhas)}/{n} verificacoes passaram")
 if falhas:
     print("FALHAS:", *falhas, sep="\n  - ")

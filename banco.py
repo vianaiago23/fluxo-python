@@ -15,7 +15,9 @@ não muda de um caso para o outro.
 """
 
 import os
+import secrets
 import sqlite3
+from datetime import timedelta
 from pathlib import Path
 
 import turso_serverless
@@ -67,9 +69,20 @@ CREATE TABLE IF NOT EXISTS metas (
     valor_limite REAL    NOT NULL CHECK (valor_limite > 0)
 );
 
+CREATE TABLE IF NOT EXISTS tokens_recuperacao (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    token      TEXT    NOT NULL UNIQUE,
+    expira_em  TEXT    NOT NULL,
+    usado      INTEGER NOT NULL DEFAULT 0 CHECK (usado IN (0, 1))
+);
+
 CREATE INDEX IF NOT EXISTS idx_lancamentos_usuario_data
     ON lancamentos (usuario_id, data);
 """
+
+# O token vale até o fim do dia seguinte ao pedido.
+DIAS_VALIDADE_TOKEN = 1
 
 
 # ------------------------------------------------------------------ conexão
@@ -149,6 +162,35 @@ def renomear_negocio(usuario_id, nome):
     banco.execute("UPDATE usuarios SET nome_negocio = ? WHERE id = ?",
                   (nome.strip() or "Meu Negócio", usuario_id))
     banco.commit()
+
+
+def buscar_usuario_por_email(email):
+    return conectar().execute(
+        "SELECT id, email, nome_negocio FROM usuarios WHERE email = ?",
+        (email.strip().lower(),),
+    ).fetchone()
+
+
+# ----------------------------------------------------- recuperação de senha
+
+def criar_token(usuario_id):
+    """Gera o token de recuperação. Um pedido novo cancela os anteriores."""
+    token = secrets.token_urlsafe(32)   # imprevisível, ao contrário do random
+    expira_em = (hoje() + timedelta(days=DIAS_VALIDADE_TOKEN)).isoformat()
+    banco = conectar()
+    banco.execute("DELETE FROM tokens_recuperacao WHERE usuario_id = ?", (usuario_id,))
+    banco.execute(
+        "INSERT INTO tokens_recuperacao (usuario_id, token, expira_em) VALUES (?, ?, ?)",
+        (usuario_id, token, expira_em),
+    )
+    banco.commit()
+    return token
+
+
+def buscar_token(token):
+    return conectar().execute(
+        "SELECT * FROM tokens_recuperacao WHERE token = ?", (token,)
+    ).fetchone()
 
 
 # ---------------------------------------------------------------- categorias

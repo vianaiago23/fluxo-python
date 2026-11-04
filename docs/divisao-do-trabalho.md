@@ -65,14 +65,14 @@ banco e no login. Comece lendo como a função `entrar()` funciona hoje.
 Arquivos: `app.py`, `banco.py`, `analise.py`, `templates/painel.html`.
 Lembre: consulta ao banco só no `banco.py`.
 
-19. Filtro de lançamentos por categoria no painel
-20. Filtro de lançamentos por período (data inicial e final)
-21. Teste automático dos dois filtros
-22. Relatório anual: a consulta no `banco.py` que soma mês a mês
-23. Relatório anual: a tela mostrando os doze meses
-24. Relatório anual: gráfico comparando os meses do ano
-25. Teste automático do relatório anual
-26. Ordenação da lista de lançamentos por data e por valor
+19. Filtro de lançamentos por categoria no painel *(feito)*
+20. Filtro de lançamentos por período (data inicial e final) *(feito)*
+21. Teste automático dos dois filtros *(feito)*
+22. Relatório anual: a consulta no `banco.py` que soma mês a mês *(feito)*
+23. Relatório anual: a tela mostrando os doze meses *(feito)*
+24. Relatório anual: gráfico comparando os meses do ano *(feito)*
+25. Teste automático do relatório anual *(feito)*
+26. Ordenação da lista de lançamentos por data e por valor *(feito)*
 
 ## Pessoa 4 — Testes — 8 entregas
 

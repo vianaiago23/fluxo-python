@@ -373,6 +373,15 @@ def configuracoes():
                 banco.trocar_senha(usuario_id, senha_nova)
                 flash("Senha alterada.", "ok")
 
+        elif acao == "excluir_conta":
+            # Não tem como desfazer: só a senha confirma a exclusão.
+            if banco.conferir_senha(usuario_id, request.form.get("senha") or ""):
+                banco.excluir_conta(usuario_id)
+                session.clear()
+                flash("Sua conta foi excluída.", "ok")
+                return redirect(url_for("entrar"))
+            flash("Senha incorreta. A conta não foi excluída.", "erro")
+
         return redirect(url_for("configuracoes"))
 
     return render_template(

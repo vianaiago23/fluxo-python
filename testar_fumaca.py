@@ -247,6 +247,53 @@ checar("senha nova entra apos a troca", consegue_entrar("troca@a.com", "senha-no
 checar("trocar a senha cancela link de recuperacao pendente",
        app.test_client().get(f"/recuperar/{token}").status_code == 400)
 
+# --- exclusão de conta
+TABELAS_DO_USUARIO = {"categorias": "usuario_id", "lancamentos": "usuario_id", "metas": "usuario_id",
+                      "tokens_recuperacao": "usuario_id", "usuarios": "id"}
+
+
+def contar_linhas(usuario_id):
+    with app.test_request_context():
+        conexao = banco.conectar()
+        return {tabela: conexao.execute(
+            f"SELECT COUNT(*) AS n FROM {tabela} WHERE {coluna} = ?", (usuario_id,)).fetchone()["n"]
+            for tabela, coluna in TABELAS_DO_USUARIO.items()}
+
+
+def criar_conta_com_dados(email):
+    cliente = app.test_client()
+    cliente.post("/entrar", data={"modo": "cadastro", "email": email, "senha": "senha123"})
+    cliente.post("/perfil", data={"perfil": "generico"})
+    with app.test_request_context():
+        usuario_id = banco.buscar_usuario_por_email(email)["id"]
+        despesa = banco.listar_categorias(usuario_id, "despesa")[0]["id"]
+        banco.criar_token(usuario_id)
+    cliente.post("/lancamento/novo", data={"categoria_id": despesa, "valor": "50,00",
+                                           "data": hoje, "descricao": "Compra", "repetir": "1"})
+    cliente.post("/meta/nova", data={"categoria_id": despesa, "valor_limite": "100,00"})
+    return cliente, usuario_id
+
+
+c_sai, id_sai = criar_conta_com_dados("sai@a.com")
+_, id_fica = criar_conta_com_dados("fica@a.com")
+antes_sai, antes_fica = contar_linhas(id_sai), contar_linhas(id_fica)
+checar("conta a excluir comeca com dados em todas as tabelas", all(antes_sai.values()))
+
+r = c_sai.post("/configuracoes", follow_redirects=True, data={"acao": "excluir_conta", "senha": "errada"})
+checar("exclusao com senha errada recusada",
+       "não foi excluída" in r.get_data(as_text=True) and contar_linhas(id_sai) == antes_sai)
+c_sai.post("/configuracoes", data={"acao": "excluir_conta"})
+checar("exclusao sem senha recusada", contar_linhas(id_sai) == antes_sai)
+
+r = c_sai.post("/configuracoes", data={"acao": "excluir_conta", "senha": "senha123"})
+checar("exclusao manda para o login", r.status_code == 302 and "/entrar" in r.headers.get("Location", ""))
+checar("nada sobra em nenhuma tabela", not any(contar_linhas(id_sai).values()))
+checar("a conta de outro usuario continua intacta", contar_linhas(id_fica) == antes_fica)
+checar("outro usuario continua entrando", consegue_entrar("fica@a.com", "senha123"))
+checar("conta excluida nao entra mais", not consegue_entrar("sai@a.com", "senha123"))
+checar("aviso de exclusao aparece no login", "foi excluída" in c_sai.get("/entrar").get_data(as_text=True))
+checar("sessao encerrada apos a exclusao", "/entrar" in c_sai.get("/").headers.get("Location", ""))
+
 print(f"\n{n - len(falhas)}/{n} verificacoes passaram")
 if falhas:
     print("FALHAS:", *falhas, sep="\n  - ")

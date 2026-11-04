@@ -452,3 +452,10 @@ def apagar_dados(usuario_id):
     banco.execute("DELETE FROM lancamentos WHERE usuario_id = ?", (usuario_id,))
     banco.execute("DELETE FROM categorias WHERE usuario_id = ?", (usuario_id,))
     banco.commit()
+
+
+def excluir_conta(usuario_id):
+    """Apaga o usuário; o ON DELETE CASCADE leva junto tudo que é dele."""
+    banco = conectar()
+    banco.execute("DELETE FROM usuarios WHERE id = ?", (usuario_id,))
+    banco.commit()

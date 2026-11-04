@@ -99,6 +99,17 @@
     <button class="btn" type="submit">Trocar senha</button>
   </form>
 
+  <h3 class="section-title">Excluir conta</h3>
+  <p class="muted pequeno">Apaga a conta e todos os lançamentos, categorias e metas. Não dá para desfazer.</p>
+  <form method="post">
+    <input type="hidden" name="acao" value="excluir_conta">
+    <div class="field">
+      <label for="senha_exclusao">Digite sua senha para confirmar</label>
+      <input id="senha_exclusao" name="senha" type="password" autocomplete="current-password" required>
+    </div>
+    <button class="btn btn-danger" type="submit">Excluir minha conta</button>
+  </form>
+
   <div class="form-acoes">
     <a class="btn btn-primary" href="{{ url_for('painel') }}">Concluído</a>
   </div>

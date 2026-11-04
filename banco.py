@@ -83,6 +83,7 @@ CREATE INDEX IF NOT EXISTS idx_lancamentos_usuario_data
 """
 
 MINUTOS_VALIDADE_TOKEN = 60
+MINUTOS_ENTRE_PEDIDOS = 5
 
 
 # ------------------------------------------------------------------ conexão
@@ -195,13 +196,33 @@ def criar_token(usuario_id):
     """Gera o token de recuperação e devolve o texto que vai no link."""
     token = secrets.token_urlsafe(32)   # imprevisível, ao contrário do random
     banco = conectar()
-    banco.execute("DELETE FROM tokens_recuperacao WHERE usuario_id = ?", (usuario_id,))
+    # Limpa só o que já não vale. Um link ainda válido continua valendo: se o
+    # pedido novo o cancelasse, qualquer um derrubaria o link de outra pessoa.
+    banco.execute(
+        "DELETE FROM tokens_recuperacao WHERE usuario_id = ? AND (usado = 1 OR expira_em <= ?)",
+        (usuario_id, _instante()),
+    )
     banco.execute(
         "INSERT INTO tokens_recuperacao (usuario_id, token, expira_em) VALUES (?, ?, ?)",
         (usuario_id, _hash_do_token(token), _instante(MINUTOS_VALIDADE_TOKEN)),
     )
     banco.commit()
     return token
+
+
+def pedido_recente(usuario_id):
+    """Diz se a conta já pediu um link nos últimos minutos.
+
+    Como todo token vale o mesmo tempo, dá para saber quando ele foi criado
+    pela expiração. O length ignora tokens antigos, que guardavam só a data.
+    """
+    limite = _instante(MINUTOS_VALIDADE_TOKEN - MINUTOS_ENTRE_PEDIDOS)
+    linha = conectar().execute(
+        "SELECT COUNT(*) AS n FROM tokens_recuperacao "
+        "WHERE usuario_id = ? AND usado = 0 AND expira_em > ? AND length(expira_em) > 10",
+        (usuario_id, limite),
+    ).fetchone()
+    return linha["n"] > 0
 
 
 def buscar_token(token):

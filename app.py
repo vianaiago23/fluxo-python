@@ -148,7 +148,7 @@ def recuperar():
 
     if request.method == "POST":
         usuario = banco.buscar_usuario_por_email(request.form.get("email") or "")
-        if usuario:
+        if usuario and not banco.pedido_recente(usuario["id"]):
             token = banco.criar_token(usuario["id"])
             # Ainda não há envio de e-mail. Em desenvolvimento o link sai no
             # terminal; publicado, nunca: log não é lugar de credencial.

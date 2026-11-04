@@ -134,7 +134,7 @@ with app.test_request_context():
     token_1 = banco.criar_token(id_token)
     token_2 = banco.criar_token(id_token)
     checar("criar_token gera textos diferentes", token_1 != token_2)
-    checar("pedido novo cancela o token anterior", banco.buscar_token(token_1) is None)
+    checar("pedido novo nao derruba o link anterior", banco.buscar_token_valido(token_1) is not None)
     linha_token = banco.buscar_token(token_2)
     checar("buscar_token acha o dono do token", linha_token["usuario_id"] == id_token)
     checar("token novo nasce sem uso", linha_token["usado"] == 0)
@@ -174,6 +174,36 @@ with app.test_request_context():
         "SELECT usuario_id FROM tokens_recuperacao WHERE usuario_id = ?", (id_rec,)).fetchall()
     total = conexao.execute("SELECT COUNT(*) AS n FROM tokens_recuperacao").fetchone()["n"]
 checar("pedido cria token so para a conta que existe", len(pedidos) == 1 and total == 1)
+
+
+def tokens_da_conta(usuario_id):
+    with app.test_request_context():
+        return banco.conectar().execute(
+            "SELECT COUNT(*) AS n FROM tokens_recuperacao WHERE usuario_id = ?", (usuario_id,)
+        ).fetchone()["n"]
+
+
+r_repetido = anonimo.post("/recuperar", data={"email": "rec@a.com"})
+checar("pedido repetido em seguida nao gera outro link", tokens_da_conta(id_rec) == 1)
+checar("pedido repetido recebe a mesma resposta", r_repetido.data == r_existe.data)
+
+with app.test_request_context():
+    conexao = banco.conectar()
+    conexao.execute("UPDATE tokens_recuperacao SET expira_em = ? WHERE usuario_id = ?",
+                    (banco._instante(banco.MINUTOS_VALIDADE_TOKEN - banco.MINUTOS_ENTRE_PEDIDOS - 1), id_rec))
+    conexao.commit()
+anonimo.post("/recuperar", data={"email": "rec@a.com"})
+checar("passado o intervalo, a conta pode pedir de novo", tokens_da_conta(id_rec) == 2)
+
+with app.test_request_context():
+    conexao = banco.conectar()
+    conexao.execute("UPDATE tokens_recuperacao SET expira_em = ? WHERE usuario_id = ?",
+                    (constantes.hoje().isoformat(), id_rec))
+    conexao.commit()
+    checar("token antigo, so com a data, nao trava pedido novo", not banco.pedido_recente(id_rec))
+    conexao = banco.conectar()
+    conexao.execute("DELETE FROM tokens_recuperacao WHERE usuario_id = ?", (id_rec,))
+    conexao.commit()
 
 with app.test_request_context():
     token = banco.criar_token(id_rec)

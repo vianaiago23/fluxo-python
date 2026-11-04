@@ -6,6 +6,7 @@ guarda os dados no SQLite, desenha os gráficos e gera o relatório em PDF.
 
 import hmac
 import os
+from datetime import date
 from functools import wraps
 
 from flask import (Flask, Response, flash, g, redirect, render_template,
@@ -113,6 +114,21 @@ def categoria_escolhida():
         return None
     # Fora dessa faixa o SQLite recusa o número e a tela quebraria.
     return numero if 0 < numero < 2**63 else None
+
+
+def data_da_url(campo):
+    """Lê uma data AAAA-MM-DD da URL. Devolve o texto, ou None se não for data."""
+    bruto = request.args.get(campo, "")
+    try:
+        # O fromisoformat aceita outros formatos (20260131); o banco só entende este.
+        return bruto if len(bruto) == 10 and date.fromisoformat(bruto) else None
+    except ValueError:
+        return None
+
+
+def periodo_escolhido():
+    """Lê ?de= e ?ate= da URL. Devolve (inicio, fim); qualquer um pode ser None."""
+    return data_da_url("de"), data_da_url("ate")
 
 
 def valor_do_formulario(campo):
@@ -242,17 +258,30 @@ def painel():
     ano, mes = mes_escolhido()
     entradas, despesas, saldo = analise.resumo_do_mes(usuario_id, ano, mes)
     categoria_id = categoria_escolhida()
-    lancamentos = banco.listar_lancamentos_do_mes(usuario_id, ano, mes, categoria_id)
+    inicio, fim = periodo_escolhido()
+    periodo_invertido = bool(inicio and fim and inicio > fim)
+
+    if periodo_invertido:
+        lancamentos = []
+    elif inicio or fim:
+        # Com data preenchida, o período substitui o mês na lista.
+        lancamentos = banco.listar_lancamentos(usuario_id, inicio, fim, categoria_id)
+    else:
+        lancamentos = banco.listar_lancamentos_do_mes(usuario_id, ano, mes, categoria_id)
     mostrar_todos = request.args.get("todos") == "1"
 
     # Filtros ativos, para os links do painel não perderem a escolha.
-    filtros = {"categoria": categoria_id} if categoria_id is not None else {}
+    filtros = {chave: valor for chave, valor in
+               (("categoria", categoria_id), ("de", inicio), ("ate", fim))
+               if valor is not None}
 
     return render_template(
         "painel.html",
         ano=ano, mes=mes,
         filtros=filtros,
         categoria_id=categoria_id,
+        inicio=inicio, fim=fim,
+        periodo_invertido=periodo_invertido,
         categorias_entrada=banco.listar_categorias(usuario_id, "entrada"),
         categorias_despesa=banco.listar_categorias(usuario_id, "despesa"),
         anterior=analise.mes_anterior(ano, mes),

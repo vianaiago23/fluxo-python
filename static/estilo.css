@@ -139,6 +139,7 @@ label,.rotulo{font-size:11px;color:var(--text-muted);text-transform:uppercase;le
 .amt-out{color:var(--expense);font-family:var(--font-mono);font-weight:700;font-size:13.5px;white-space:nowrap;}
 .filtros{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;padding:12px 0 14px;border-bottom:1px solid var(--line);margin-bottom:4px;}
 .filtros .filtro{flex:1 1 160px;min-width:0;}
+.filtros .filtro-data{flex:0 1 150px;}
 .filtros .filtro-acoes{display:flex;gap:6px;}
 .row-actions{display:flex;gap:2px;align-items:center;}
 .empty{text-align:center;padding:30px 10px;color:var(--text-muted);font-size:13.5px;}

@@ -373,16 +373,29 @@ def aplicar_perfil(usuario_id, chave_perfil):
 # --------------------------------------------------------------- lançamentos
 
 def listar_lancamentos_do_mes(usuario_id, ano, mes, categoria_id=None):
-    """Lançamentos do mês. Com `categoria_id`, só os daquela categoria.
+    """Lançamentos do mês. Com `categoria_id`, só os daquela categoria."""
+    # Dia 31 serve para qualquer mês: a comparação é de texto, não de data.
+    return listar_lancamentos(usuario_id, f"{ano:04d}-{mes:02d}-01",
+                              f"{ano:04d}-{mes:02d}-31", categoria_id)
 
-    O filtro por usuario_id vale sempre: sem ele, trocar o número da
-    categoria na URL mostraria lançamentos de outra conta.
+
+def listar_lancamentos(usuario_id, inicio=None, fim=None, categoria_id=None):
+    """Lançamentos entre duas datas, inclusive. None deixa o lado em aberto.
+
+    As datas são texto AAAA-MM-DD: nesse formato, comparar texto é o mesmo
+    que comparar datas. O filtro por usuario_id vale sempre: sem ele, trocar
+    o número da categoria na URL mostraria lançamentos de outra conta.
     """
-    prefixo = f"{ano:04d}-{mes:02d}"
     sql = ("SELECT l.*, c.nome AS categoria_nome, c.cor AS categoria_cor "
            "FROM lancamentos l JOIN categorias c ON c.id = l.categoria_id "
-           "WHERE l.usuario_id = ? AND l.data LIKE ?")
-    parametros = [usuario_id, prefixo + "%"]
+           "WHERE l.usuario_id = ?")
+    parametros = [usuario_id]
+    if inicio is not None:
+        sql += " AND l.data >= ?"
+        parametros.append(inicio)
+    if fim is not None:
+        sql += " AND l.data <= ?"
+        parametros.append(fim)
     if categoria_id is not None:
         sql += " AND l.categoria_id = ?"
         parametros.append(categoria_id)

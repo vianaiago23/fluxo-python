@@ -9,6 +9,8 @@
 </span>
 {% endblock %}
 
+{% macro data_br(texto) %}{{ texto[8:10] }}/{{ texto[5:7] }}/{{ texto[:4] }}{% endmacro %}
+
 {% block conteudo %}
 
 <div class="hero">
@@ -136,7 +138,12 @@
 
 <div class="card ledger-card">
   <div class="lh">
-    <h3>Lançamentos de {{ MESES[mes - 1] }}</h3>
+    <h3>
+      {% if inicio and fim %}Lançamentos de {{ data_br(inicio) }} a {{ data_br(fim) }}
+      {% elif inicio %}Lançamentos a partir de {{ data_br(inicio) }}
+      {% elif fim %}Lançamentos até {{ data_br(fim) }}
+      {% else %}Lançamentos de {{ MESES[mes - 1] }}{% endif %}
+    </h3>
     <div class="ledger-actions">
       <a class="btn btn-ghost pequeno" href="{{ url_for('importar') }}">Importar extrato</a>
       <a class="btn btn-ghost pequeno" href="{{ url_for('baixar_relatorio') }}">Exportar PDF</a>
@@ -159,6 +166,14 @@
           </optgroup>
         {% endfor %}
       </select>
+    </div>
+    <div class="filtro filtro-data">
+      <label for="filtro-de">De</label>
+      <input id="filtro-de" type="date" name="de" value="{{ inicio or '' }}">
+    </div>
+    <div class="filtro filtro-data">
+      <label for="filtro-ate">Até</label>
+      <input id="filtro-ate" type="date" name="ate" value="{{ fim or '' }}">
     </div>
     <div class="filtro-acoes">
       <button class="btn btn-primary pequeno" type="submit">Filtrar</button>
@@ -187,7 +202,9 @@
       </span>
     </div>
   {% else %}
-    {% if filtros %}
+    {% if periodo_invertido %}
+      <p class="empty">A data inicial é depois da final. Confira o período escolhido.</p>
+    {% elif filtros %}
       <p class="empty">Nenhum lançamento encontrado com esse filtro.</p>
     {% else %}
     <p class="empty">

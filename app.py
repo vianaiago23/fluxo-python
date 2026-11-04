@@ -4,6 +4,7 @@ Aplicação web feita em Python com Flask. O servidor monta as telas,
 guarda os dados no SQLite, desenha os gráficos e gera o relatório em PDF.
 """
 
+import hmac
 import os
 from functools import wraps
 
@@ -60,12 +61,26 @@ def exige_login(rota):
     return verificar
 
 
+def marca_da_senha(usuario):
+    """Resumo da senha atual, guardado na sessão. O cookie pode ser lido por
+    quem o tem, por isso a marca é assinada e não revela o hash da senha."""
+    return hmac.new(app.secret_key.encode(), usuario["senha_hash"].encode(), "sha256").hexdigest()
+
+
+def abrir_sessao(usuario_id):
+    session["usuario_id"] = usuario_id
+    session["marca_senha"] = marca_da_senha(banco.buscar_usuario(usuario_id))
+
+
 @app.before_request
 def carregar_usuario():
     g.usuario = None
     if "usuario_id" in session:
-        g.usuario = banco.buscar_usuario(session["usuario_id"])
-        if g.usuario is None:          # conta apagada: derruba a sessão
+        usuario = banco.buscar_usuario(session["usuario_id"])
+        # Conta apagada ou senha trocada desde o login: derruba a sessão.
+        if usuario and hmac.compare_digest(session.get("marca_senha", ""), marca_da_senha(usuario)):
+            g.usuario = usuario
+        else:
             session.clear()
 
 
@@ -122,14 +137,14 @@ def entrar():
                 if usuario_id is None:
                     flash("Já existe uma conta com esse e-mail.", "erro")
                 else:
-                    session["usuario_id"] = usuario_id
+                    abrir_sessao(usuario_id)
                     return redirect(url_for("perfil"))
         else:
             usuario_id = banco.autenticar(email, senha)
             if usuario_id is None:
                 flash("E-mail ou senha incorretos.", "erro")
             else:
-                session["usuario_id"] = usuario_id
+                abrir_sessao(usuario_id)
                 return redirect(url_for("painel"))
 
     return render_template("entrar.html", modo=modo)
@@ -371,7 +386,8 @@ def configuracoes():
                 flash(problema, "erro")
             else:
                 banco.trocar_senha(usuario_id, senha_nova)
-                flash("Senha alterada.", "ok")
+                abrir_sessao(usuario_id)   # só este navegador continua logado
+                flash("Senha alterada. Os outros aparelhos foram desconectados.", "ok")
 
         elif acao == "excluir_conta":
             # Não tem como desfazer: só a senha confirma a exclusão.

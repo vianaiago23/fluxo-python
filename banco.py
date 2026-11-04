@@ -154,7 +154,7 @@ def autenticar(email, senha):
 
 def buscar_usuario(usuario_id):
     return conectar().execute(
-        "SELECT id, email, nome_negocio FROM usuarios WHERE id = ?", (usuario_id,)
+        "SELECT id, email, nome_negocio, senha_hash FROM usuarios WHERE id = ?", (usuario_id,)
     ).fetchone()
 
 

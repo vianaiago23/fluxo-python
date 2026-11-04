@@ -299,6 +299,36 @@ checar("senha nova entra apos a troca", consegue_entrar("troca@a.com", "senha-no
 checar("trocar a senha cancela link de recuperacao pendente",
        app.test_client().get(f"/recuperar/{token}").status_code == 400)
 
+# --- trocar a senha encerra as outras sessões
+def esta_logado(cliente):
+    return cliente.get("/configuracoes").status_code == 200
+
+
+def login_em_cliente_novo(email, senha):
+    cliente = app.test_client()
+    cliente.post("/entrar", data={"modo": "login", "email": email, "senha": senha})
+    return cliente
+
+
+outro_aparelho = login_em_cliente_novo("troca@a.com", "senha-nova")
+checar("segunda sessao comeca logada", esta_logado(outro_aparelho))
+corpo = trocar("senha-nova", "senha-terceira", "senha-terceira")
+checar("quem trocou a senha continua logado", "Senha alterada" in corpo and esta_logado(c_troca))
+checar("troca de senha derruba a outra sessao", not esta_logado(outro_aparelho))
+
+outro_aparelho = login_em_cliente_novo("troca@a.com", "senha-terceira")
+with app.test_request_context():
+    token = banco.criar_token(banco.buscar_usuario_por_email("troca@a.com")["id"])
+app.test_client().post(f"/recuperar/{token}", data={"senha": "senha-quarta", "confirmacao": "senha-quarta"})
+checar("recuperacao de senha derruba as sessoes abertas", not esta_logado(outro_aparelho))
+
+with app.test_request_context():
+    id_sem_marca = banco.buscar_usuario_por_email("troca@a.com")["id"]
+sem_marca = app.test_client()
+with sem_marca.session_transaction() as sessao_antiga:
+    sessao_antiga["usuario_id"] = id_sem_marca
+checar("sessao sem a marca da senha nao vale", not esta_logado(sem_marca))
+
 # --- exclusão de conta
 TABELAS_DO_USUARIO = {"categorias": "usuario_id", "lancamentos": "usuario_id", "metas": "usuario_id",
                       "tokens_recuperacao": "usuario_id", "usuarios": "id"}

@@ -471,6 +471,24 @@ def somar_mes(usuario_id, ano, mes, tipo):
     return linha["total"]
 
 
+def somar_ano(usuario_id, ano):
+    """Entradas e despesas de cada mês do ano, numa consulta só.
+
+    Devolve uma linha por mês que teve lançamento, com as colunas `mes`
+    (1 a 12), `entradas` e `despesas`. Mês sem lançamento não vem: quem
+    monta a tabela precisa completar com zero.
+    """
+    return conectar().execute(
+        "SELECT CAST(strftime('%m', data) AS INTEGER) AS mes, "
+        "SUM(CASE WHEN tipo = 'entrada' THEN valor ELSE 0 END) AS entradas, "
+        "SUM(CASE WHEN tipo = 'despesa' THEN valor ELSE 0 END) AS despesas "
+        "FROM lancamentos "
+        "WHERE usuario_id = ? AND data BETWEEN ? AND ? "
+        "GROUP BY mes ORDER BY mes",
+        (usuario_id, f"{ano:04d}-01-01", f"{ano:04d}-12-31"),
+    ).fetchall()
+
+
 # --------------------------------------------------------------------- metas
 
 def listar_metas(usuario_id, ano, mes):

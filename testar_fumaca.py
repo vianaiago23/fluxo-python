@@ -595,6 +595,26 @@ with app.test_request_context():
     depois = banco.listar_todos_lancamentos(1)
 checar("lancamento de hoje continua sendo aceito", len(depois) == antes_de_tudo + 1)
 
+# --- etiquetas do eixo dos graficos
+
+from graficos import _rotulo_do_eixo  # noqa: E402
+
+checar("eixo nao mostra zero negativo", _rotulo_do_eixo(-0.0, None) == "0")
+checar("eixo nao mostra -0 ao arredondar", _rotulo_do_eixo(-0.4, None) == "0")
+checar("eixo mostra valor pequeno inteiro", _rotulo_do_eixo(300.0, None) == "300")
+checar("eixo mantem o sinal de valor negativo", _rotulo_do_eixo(-400.0, None) == "-400")
+checar("eixo encurta milhar", _rotulo_do_eixo(2500.0, None) == "2 mil")
+checar("eixo encurta milhar negativo", _rotulo_do_eixo(-2500.0, None) == "-2 mil")
+
+import graficos  # noqa: E402
+
+meses = ["Jun", "Jul", "Ago", "Set", "Out", "Nov"]
+vazio = graficos.barras_saldo(meses, [0, 0, 0, 0, 0, 0])
+cheio = graficos.barras_saldo(meses, [0, 0, 0, 0, 0, 5000])
+checar("grafico de saldo sem movimento gera PNG", vazio[:4] == b"\x89PNG")
+checar("grafico de saldo com movimento gera PNG", cheio[:4] == b"\x89PNG")
+checar("sem movimento o grafico vira aviso, nao eixo zerado", vazio != cheio)
+
 print(f"\n{n - len(falhas)}/{n} verificacoes passaram")
 if falhas:
     print("FALHAS:", *falhas, sep="\n  - ")

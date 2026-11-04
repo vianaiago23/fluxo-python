@@ -398,6 +398,66 @@ with app.test_request_context():
     banco.excluir_conta(id_sem_fk)
 checar("exclusao apaga tudo mesmo sem chaves estrangeiras", not any(contar_linhas(id_sem_fk).values()))
 
+# --- filtros do painel: categoria e período
+c_filtro = app.test_client()
+c_filtro.post("/entrar", data={"modo": "cadastro", "email": "filtro@a.com", "senha": "senha123"})
+c_filtro.post("/perfil", data={"perfil": "arquiteto"})
+with app.test_request_context():
+    id_filtro = banco.buscar_usuario_por_email("filtro@a.com")["id"]
+    cat_entrada = banco.listar_categorias(id_filtro, "entrada")[0]["id"]
+    cat_despesa = banco.listar_categorias(id_filtro, "despesa")[0]["id"]
+for categoria, data_mov, descricao in ((cat_entrada, "2025-01-10", "Filtro-jan"),
+                                       (cat_despesa, "2025-02-15", "Filtro-fev"),
+                                       (cat_entrada, "2025-03-20", "Filtro-mar")):
+    c_filtro.post("/lancamento/novo", data={"categoria_id": categoria, "valor": "100,00",
+                                            "data": data_mov, "descricao": descricao, "repetir": "1"})
+
+
+def descricoes_no_painel(cliente, consulta):
+    corpo = cliente.get("/?todos=1&" + consulta).get_data(as_text=True)
+    return {d for d in ("Filtro-jan", "Filtro-fev", "Filtro-mar")
+            if f'<span class="desc">{d}' in corpo}
+
+
+checar("filtro por categoria mostra so ela",
+       descricoes_no_painel(c_filtro, f"de=2025-01-01&ate=2025-12-31&categoria={cat_entrada}")
+       == {"Filtro-jan", "Filtro-mar"})
+checar("filtro por categoria funciona junto com o mes",
+       descricoes_no_painel(c_filtro, f"ano=2025&mes=2&categoria={cat_entrada}") == set())
+checar("sem filtro, o mes mostra tudo dele",
+       descricoes_no_painel(c_filtro, "ano=2025&mes=2") == {"Filtro-fev"})
+checar("periodo recorta certo",
+       descricoes_no_painel(c_filtro, "de=2025-02-01&ate=2025-03-31") == {"Filtro-fev", "Filtro-mar"})
+checar("periodo inclui as duas pontas",
+       descricoes_no_painel(c_filtro, "de=2025-01-10&ate=2025-02-15") == {"Filtro-jan", "Filtro-fev"})
+checar("periodo substitui o filtro de mes",
+       descricoes_no_painel(c_filtro, "ano=2025&mes=1&de=2025-03-01&ate=2025-03-31") == {"Filtro-mar"})
+checar("periodo so com data inicial fica aberto no fim",
+       descricoes_no_painel(c_filtro, "de=2025-02-01") == {"Filtro-fev", "Filtro-mar"})
+checar("periodo e categoria juntos",
+       descricoes_no_painel(c_filtro, f"de=2025-02-01&ate=2025-12-31&categoria={cat_entrada}")
+       == {"Filtro-mar"})
+
+r = c_filtro.get("/?de=2025-12-31&ate=2025-01-01")
+checar("data inicial maior que a final nao quebra a tela",
+       r.status_code == 200 and "depois da final" in r.get_data(as_text=True)
+       and descricoes_no_painel(c_filtro, "de=2025-12-31&ate=2025-01-01") == set())
+checar("data invalida na URL nao quebra a tela",
+       c_filtro.get("/?de=2025-02-30&ate=lixo").status_code == 200)
+checar("categoria invalida na URL nao quebra a tela",
+       c_filtro.get("/?categoria=99999999999999999999999").status_code == 200)
+
+# outra conta trocando o número da categoria na URL
+c_intruso = app.test_client()
+c_intruso.post("/entrar", data={"modo": "cadastro", "email": "intruso@a.com", "senha": "senha123"})
+c_intruso.post("/perfil", data={"perfil": "arquiteto"})
+checar("categoria de outra conta na URL nao mostra nada",
+       descricoes_no_painel(c_intruso, f"de=2025-01-01&ate=2025-12-31&categoria={cat_entrada}") == set())
+with app.test_request_context():
+    id_intruso = banco.buscar_usuario_por_email("intruso@a.com")["id"]
+    checar("consulta com categoria alheia volta vazia",
+           banco.listar_lancamentos(id_intruso, categoria_id=cat_entrada) == [])
+
 print(f"\n{n - len(falhas)}/{n} verificacoes passaram")
 if falhas:
     print("FALHAS:", *falhas, sep="\n  - ")

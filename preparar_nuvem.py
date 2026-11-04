@@ -12,6 +12,7 @@ para provar que o sistema consegue ler e escrever na nuvem.
 """
 
 import os
+import re
 import sys
 
 # O Python instalado no macOS costuma vir sem os certificados raiz, e sem eles
@@ -25,7 +26,12 @@ if not os.environ.get("SSL_CERT_FILE"):
 
 import banco
 
-TABELAS_ESPERADAS = {"usuarios", "categorias", "lancamentos", "metas"}
+# A lista sai do proprio esquema, em vez de ser escrita aqui a mao: assim,
+# quem criar uma tabela nova no banco.py nao precisa lembrar de mexer neste
+# arquivo. Ja aconteceu de a lista envelhecer e o script dizer que estava
+# tudo certo com uma tabela faltando no servidor.
+TABELAS_ESPERADAS = set(re.findall(
+    r"CREATE TABLE IF NOT EXISTS\s+([a-z_]+)", banco.ESQUEMA))
 
 
 def main():
@@ -50,7 +56,8 @@ def main():
     if faltando:
         print("FALHA: nao foram criadas as tabelas:", ", ".join(sorted(faltando)))
         return 1
-    print("tabelas no banco:", ", ".join(sorted(TABELAS_ESPERADAS)))
+    print(f"tabelas no banco ({len(TABELAS_ESPERADAS)}):",
+          ", ".join(sorted(TABELAS_ESPERADAS)))
 
     indices = {l["name"] for l in conexao.execute(
         "SELECT name FROM sqlite_master WHERE type = 'index'")}

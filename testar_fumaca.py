@@ -555,6 +555,86 @@ checar("ofx sem nenhuma STMTTRN devolve lista vazia", leitor.ler_ofx("<OFX><BANK
 checar("ofx: data que nao e data e recusada",
        leitor.ler_ofx("<STMTTRN><DTPOSTED>ABCDEFGH<TRNAMT>-5.00<MEMO>X</STMTTRN>") == [])
 
+
+# ======================================================================
+# ITEM 29 — arquivo inválido: avisa e não grava nada
+# ======================================================================
+# --- a leitura em si: nunca estoura erro, só devolve lista vazia
+for nome, conteudo in (("vazio", b""), ("so linhas em branco", b"\n  \n\n"),
+                       ("texto qualquer", b"isto nao e um extrato"),
+                       ("binario", bytes(range(256)) * 8)):
+    for extensao in (".csv", ".ofx"):
+        resultado = tentar(lambda: leitor.ler_extrato("arquivo" + extensao, conteudo))
+        checar(f"leitura de {nome} ({extensao}) devolve lista vazia sem estourar", resultado == [])
+
+checar("csv sem a coluna de valor devolve lista vazia",
+       leitor.ler_csv("Data;Descrição;Categoria\n14/09/2026;Mercado;Alimentação\n") == [])
+
+lidos = leitor.ler_csv("Data;Descrição;Valor\n14/09/2026;Boa;-10,00\n"
+                       "15/09/2026;Ruim;abc\n16/09/2026;Boa2;20,00\n")
+checar("linha com valor que nao e numero fica de fora", [l["descricao"] for l in lidos] == ["Boa", "Boa2"])
+
+# Fragilidade real: float() aceita "nan" e "inf", que não são valores de dinheiro
+checar("valor 'nan' nao e aceito", leitor.ler_csv("Data;Descrição;Valor\n14/09/2026;X;nan\n") == [])
+checar("valor 'inf' nao e aceito", leitor.ler_csv("Data;Descrição;Valor\n14/09/2026;X;inf\n") == [])
+
+# --- pela tela: avisa e não grava
+cli_imp, id_imp = conta_limpa("importa@a.com")
+
+
+def enviar_extrato(cliente, nome, conteudo):
+    return cliente.post("/importar", data={"extrato": (io.BytesIO(conteudo), nome)},
+                        content_type="multipart/form-data", follow_redirects=True)
+
+
+for nome, conteudo in (("vazio.csv", b""), ("texto.csv", b"isto nao e um extrato"),
+                       ("texto.ofx", b"isto nao e um extrato"),
+                       ("semvalor.csv", "Data;Descrição;Categoria\n14/09/2026;A;B\n".encode())):
+    r = tentar(lambda: enviar_extrato(cli_imp, nome, conteudo))
+    checar(f"importar {nome}: avisa que nao leu nada",
+           sem_estouro(r) and "Não foi possível ler" in r.get_data(as_text=True))
+    checar(f"importar {nome}: nao grava nada", total_lancamentos(id_imp) == 0)
+
+r = tentar(lambda: cli_imp.post("/importar", data={}, follow_redirects=True))
+checar("importar sem escolher arquivo: avisa", sem_estouro(r) and "Escolha um arquivo" in r.get_data(as_text=True))
+
+csv_misto = "Data;Descrição;Valor\n14/09/2026;Boa;-10,00\n15/09/2026;Ruim;abc\n".encode()
+r = tentar(lambda: enviar_extrato(cli_imp, "misto.csv", csv_misto))
+checar("importar CSV com uma linha ruim: mostra a revisao", sem_estouro(r) and r.status_code == 200)
+checar("importar CSV com uma linha ruim: ainda nao grava (so grava ao confirmar)", total_lancamentos(id_imp) == 0)
+
+# --- a confirmação: campo adulterado ou vazio na tela de revisão
+with app.test_request_context():
+    cat_imp = banco.listar_categorias(id_imp, "despesa")[0]["id"]
+
+
+def confirmar(cliente, linhas):
+    """linhas: lista de (valor, data). Todas marcadas para importar."""
+    dados = {"incluir": [str(i) for i in range(len(linhas))]}
+    for i, (valor, data) in enumerate(linhas):
+        dados.update({f"categoria_{i}": str(cat_imp), f"valor_{i}": valor,
+                      f"data_{i}": data, f"descricao_{i}": f"linha {i}"})
+    return tentar(lambda: cliente.post("/importar/confirmar", data=dados, follow_redirects=True))
+
+
+casos = {
+    "valor que nao e numero": [("10.00", "2026-09-14"), ("abc", "2026-09-15")],
+    "valor vazio": [("10.00", "2026-09-14"), ("", "2026-09-15")],
+    "valor negativo": [("10.00", "2026-09-14"), ("-5", "2026-09-15")],
+    "valor zero": [("10.00", "2026-09-14"), ("0", "2026-09-15")],
+    "data vazia": [("10.00", "2026-09-14"), ("5.00", "")],
+}
+for nome, linhas in casos.items():
+    antes = total_lancamentos(id_imp)
+    r = confirmar(cli_imp, linhas)
+    depois = total_lancamentos(id_imp)
+    checar(f"confirmar com {nome}: nao estoura erro", sem_estouro(r))
+    checar(f"confirmar com {nome}: nao grava lancamento pela metade", depois == antes)
+
+antes = total_lancamentos(id_imp)
+r = confirmar(cli_imp, [("10.00", "2026-09-14"), ("5.00", "2026-09-15")])
+checar("confirmar com tudo certo grava as 2 linhas", sem_estouro(r) and total_lancamentos(id_imp) == antes + 2)
+
 print(f"\n{n - len(falhas)}/{n} verificacoes passaram")
 if falhas:
     print("FALHAS:", *falhas, sep="\n  - ")

@@ -116,7 +116,7 @@ label,.rotulo{font-size:11px;color:var(--text-muted);text-transform:uppercase;le
 .grafico-largo{display:block;width:100%;height:auto;max-height:230px;object-fit:contain;}
 
 /* metas */
-.goals-card .gh{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.goals-card .gh,.anual-card .gh{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
 .goal-row{margin-bottom:14px;}
 .goal-row:last-child{margin-bottom:0;}
 .goal-row .top{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px;align-items:center;gap:10px;}
@@ -144,6 +144,17 @@ label,.rotulo{font-size:11px;color:var(--text-muted);text-transform:uppercase;le
 .row-actions{display:flex;gap:2px;align-items:center;}
 .empty{text-align:center;padding:30px 10px;color:var(--text-muted);font-size:13.5px;}
 .footnote{text-align:center;color:var(--text-muted);font-size:11.5px;margin-top:28px;}
+
+/* relatório anual */
+.tabela-anual-wrap{overflow-x:auto;margin-top:12px;}
+.tabela-anual{width:100%;border-collapse:collapse;font-size:13.5px;}
+.tabela-anual th,.tabela-anual td{padding:10px 8px;border-bottom:1px dashed var(--line);text-align:right;white-space:nowrap;}
+.tabela-anual th:first-child{text-align:left;}
+.tabela-anual thead th{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--line);}
+.tabela-anual tbody th a:hover{text-decoration:underline;}
+.tabela-anual tbody th{font-weight:600;}
+.tabela-anual .mes-vazio td,.tabela-anual .mes-vazio th{color:var(--text-muted);}
+.tabela-anual tfoot th,.tabela-anual tfoot td{font-weight:700;border-top:1px solid var(--line);border-bottom:none;}
 
 /* formulários */
 .form-card{max-width:520px;margin-left:auto;margin-right:auto;}

@@ -102,6 +102,15 @@ def mes_escolhido():
     return data_de_hoje.year, data_de_hoje.month
 
 
+def ano_escolhido():
+    """Lê ?ano= da URL; sem isso, ou fora de 1 a 9999, usa o ano corrente."""
+    try:
+        ano = int(request.args.get("ano", ""))
+    except ValueError:
+        return hoje().year
+    return ano if 1 <= ano <= 9999 else hoje().year
+
+
 def categoria_escolhida():
     """Lê ?categoria= da URL. Devolve o número, ou None para não filtrar.
 
@@ -295,6 +304,15 @@ def painel():
         mostrar_todos=mostrar_todos,
         insight=analise.montar_insight(usuario_id, ano, mes),
     )
+
+
+@app.get("/anual")
+@exige_login
+def relatorio_anual():
+    """Os doze meses do ano em tabela, com o total no fim."""
+    ano = ano_escolhido()
+    meses, total = analise.resumo_do_ano(session["usuario_id"], ano)
+    return render_template("anual.html", ano=ano, meses=meses, total=total)
 
 
 # -------------------------------------------------------------- lançamentos

@@ -1,0 +1,56 @@
+{% extends "interna.html" %}
+{% block titulo %}Relatório de {{ ano }} — Fluxo{% endblock %}
+
+{% block navegacao %}
+<span class="month-nav">
+  <a href="{{ url_for('relatorio_anual', ano=ano - 1) }}" title="Ano anterior">&lsaquo;</a>
+  <span class="label">{{ ano }}</span>
+  <a href="{{ url_for('relatorio_anual', ano=ano + 1) }}" title="Próximo ano">&rsaquo;</a>
+</span>
+{% endblock %}
+
+{% macro valor_saldo(valor) %}
+  <span class="{{ 'amt-in' if valor >= 0 else 'amt-out' }}">{{ formatar_reais(valor) }}</span>
+{% endmacro %}
+
+{% block conteudo %}
+<div class="card anual-card">
+  <div class="gh">
+    <h3>Relatório anual de {{ ano }}</h3>
+    <a class="btn btn-ghost pequeno" href="{{ url_for('painel') }}">&larr; Voltar ao painel</a>
+  </div>
+
+  <div class="tabela-anual-wrap">
+    <table class="tabela-anual">
+      <thead>
+        <tr>
+          <th scope="col">Mês</th>
+          <th scope="col">Entradas</th>
+          <th scope="col">Despesas</th>
+          <th scope="col">Saldo</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for linha in meses %}
+          <tr class="{{ 'mes-vazio' if not linha['entradas'] and not linha['despesas'] }}">
+            <th scope="row">
+              <a href="{{ url_for('painel', ano=ano, mes=linha['mes']) }}">{{ linha['nome'] }}</a>
+            </th>
+            <td class="mono">{{ formatar_reais(linha['entradas']) }}</td>
+            <td class="mono">{{ formatar_reais(linha['despesas']) }}</td>
+            <td>{{ valor_saldo(linha['saldo']) }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <th scope="row">Total do ano</th>
+          <td class="mono">{{ formatar_reais(total['entradas']) }}</td>
+          <td class="mono">{{ formatar_reais(total['despesas']) }}</td>
+          <td>{{ valor_saldo(total['saldo']) }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+{% endblock %}

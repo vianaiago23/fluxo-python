@@ -146,6 +146,7 @@
     </h3>
     <div class="ledger-actions">
       <a class="btn btn-ghost pequeno" href="{{ url_for('importar') }}">Importar extrato</a>
+      <a class="btn btn-ghost pequeno" href="{{ url_for('relatorio_anual', ano=ano) }}">Relatório anual</a>
       <a class="btn btn-ghost pequeno" href="{{ url_for('baixar_relatorio') }}">Exportar PDF</a>
       <a class="btn btn-primary pequeno" href="{{ url_for('editar_lancamento') }}">+ Novo lançamento</a>
     </div>

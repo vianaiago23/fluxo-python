@@ -702,6 +702,67 @@ for nome, repetir, data in (("repetir que nao e numero", "abc", "2026-05-01"),
     checar(f"{nome}: nao estoura erro", sem_estouro(r))
 checar("entradas estranhas nao gravam lancamento", total_lancamentos(id_rep) == antes)
 
+
+# ======================================================================
+# ITEM 31 — metas: alerta em 80% e em 100%
+# ======================================================================
+cli_meta, id_meta = conta_limpa("meta@a.com")
+ano_h, mes_h = constantes.hoje().year, constantes.hoje().month
+dia_hoje = constantes.hoje().isoformat()
+with app.test_request_context():
+    cat_gasto = banco.listar_categorias(id_meta, "despesa")[0]["id"]
+    cat_entrada = banco.listar_categorias(id_meta, "entrada")[0]["id"]
+
+
+def metas_do_mes():
+    with app.test_request_context():
+        return [dict(m) for m in banco.listar_metas(id_meta, ano_h, mes_h)]
+
+
+def gastar(valor):
+    cli_meta.post("/lancamento/novo", data={"categoria_id": cat_gasto, "valor": valor,
+                                            "data": dia_hoje, "descricao": "gasto da meta", "repetir": "1"})
+
+
+cli_meta.post("/meta/nova", data={"categoria_id": cat_gasto, "valor_limite": "1.000,00"})
+checar("meta criada com o limite informado",
+       len(metas_do_mes()) == 1 and metas_do_mes()[0]["valor_limite"] == 1000.0)
+checar("meta recem criada comeca com gasto zero", metas_do_mes()[0]["gasto"] == 0)
+
+
+def percentual():
+    meta = metas_do_mes()[0]
+    return meta["gasto"] / meta["valor_limite"] * 100
+
+
+gastar("799,00")
+checar("gasto de 799 de 1000 esta abaixo de 80%", percentual() < 80)
+gastar("1,00")
+checar("gasto de 800 de 1000 chega em 80%", percentual() == 80)
+gastar("199,00")
+checar("gasto de 999 de 1000 ainda esta abaixo de 100%", 80 < percentual() < 100)
+gastar("1,00")
+checar("gasto de 1000 de 1000 chega em 100%", percentual() == 100)
+gastar("50,00")
+checar("gasto acima do limite passa de 100%", percentual() > 100)
+
+# FALTA: conferir o AVISO na tela do painel (depende do texto do painel.html)
+
+cli_meta.post("/meta/nova", data={"categoria_id": cat_gasto, "valor_limite": "2.000,00"})
+checar("meta repetida na mesma categoria atualiza o limite, sem duplicar",
+       len(metas_do_mes()) == 1 and metas_do_mes()[0]["valor_limite"] == 2000.0)
+
+for nome, categoria, limite in (("categoria de entrada", cat_entrada, "500,00"),
+                                ("limite zero", cat_gasto + 1, "0"),
+                                ("limite negativo", cat_gasto + 1, "-50"),
+                                ("limite que nao e numero", cat_gasto + 1, "abc"),
+                                ("categoria inexistente", 999999, "500,00"),
+                                ("categoria que nao e numero", "abc", "500,00")):
+    r = tentar(lambda: cli_meta.post("/meta/nova", data={"categoria_id": categoria, "valor_limite": limite}))
+    checar(f"meta com {nome}: nao e aceita", sem_estouro(r) and len(metas_do_mes()) == 1)
+r = cli_meta.post("/meta/nova", data={"categoria_id": cat_entrada, "valor_limite": "500,00"}, follow_redirects=True)
+checar("meta em categoria de entrada: avisa o motivo", "Escolha a categoria" in r.get_data(as_text=True))
+
 print(f"\n{n - len(falhas)}/{n} verificacoes passaram")
 if falhas:
     print("FALHAS:", *falhas, sep="\n  - ")

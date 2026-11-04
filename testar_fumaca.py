@@ -34,7 +34,7 @@ def checar(rotulo, condicao):
 
 print("modo:", "nuvem" if banco.NA_NUVEM else "local (arquivo)")
 checar("banco local, nao na nuvem", banco.NA_NUVEM is False)
-from datetime import datetime  # noqa: E402
+from datetime import datetime, timedelta  # noqa: E402
 checar("hoje() usa o fuso de Brasilia",
        constantes.hoje() == datetime.now(constantes.FUSO_BRASIL).date())
 
@@ -144,6 +144,77 @@ with app.test_request_context():
     conexao.execute("DELETE FROM usuarios WHERE id = ?", (id_token,))
     conexao.commit()
     checar("apagar o usuario apaga os tokens dele", banco.buscar_token(token_2) is None)
+
+
+def consegue_entrar(email, senha):
+    r = app.test_client().post("/entrar", data={"modo": "login", "email": email, "senha": senha})
+    return r.status_code == 302
+
+
+# --- recuperação de senha
+with app.test_request_context():
+    id_rec = banco.criar_usuario("rec@a.com", "senha-antiga")
+
+anonimo = app.test_client()
+checar("tela de recuperar abre", anonimo.get("/recuperar").status_code == 200)
+checar("login tem link para recuperar", "/recuperar" in anonimo.get("/entrar").get_data(as_text=True))
+r_existe = anonimo.post("/recuperar", data={"email": "rec@a.com"})
+r_nao_existe = anonimo.post("/recuperar", data={"email": "ninguem@a.com"})
+checar("recuperar mostra a mensagem combinada",
+       "Se existir uma conta com esse e-mail" in r_existe.get_data(as_text=True))
+checar("resposta igual para e-mail existente e inexistente",
+       r_existe.status_code == r_nao_existe.status_code and r_existe.data == r_nao_existe.data)
+
+with app.test_request_context():
+    conexao = banco.conectar()
+    pedidos = conexao.execute(
+        "SELECT usuario_id FROM tokens_recuperacao WHERE usuario_id = ?", (id_rec,)).fetchall()
+    total = conexao.execute("SELECT COUNT(*) AS n FROM tokens_recuperacao").fetchone()["n"]
+checar("pedido cria token so para a conta que existe", len(pedidos) == 1 and total == 1)
+
+with app.test_request_context():
+    token = banco.criar_token(id_rec)
+checar("token valido abre o formulario", anonimo.get(f"/recuperar/{token}").status_code == 200)
+
+r = anonimo.post(f"/recuperar/{token}", data={"senha": "123", "confirmacao": "123"})
+checar("senha curta recusada na recuperacao",
+       "6 ou mais" in r.get_data(as_text=True) and consegue_entrar("rec@a.com", "senha-antiga"))
+r = anonimo.post(f"/recuperar/{token}", data={"senha": "senha-nova", "confirmacao": "outra-coisa"})
+checar("confirmacao diferente recusada na recuperacao",
+       "confirmação" in r.get_data(as_text=True) and consegue_entrar("rec@a.com", "senha-antiga"))
+
+r = anonimo.post(f"/recuperar/{token}", data={"senha": "senha-nova", "confirmacao": "senha-nova"})
+checar("token valido troca a senha", r.status_code == 302 and "/entrar" in r.headers.get("Location", ""))
+checar("senha nova entra depois da recuperacao", consegue_entrar("rec@a.com", "senha-nova"))
+checar("senha antiga nao entra depois da recuperacao", not consegue_entrar("rec@a.com", "senha-antiga"))
+checar("aviso de sucesso aparece no login",
+       "Senha alterada" in anonimo.get("/entrar").get_data(as_text=True))
+with app.test_request_context():
+    checar("senha nao fica em texto puro", banco.conectar().execute(
+        "SELECT senha_hash FROM usuarios WHERE id = ?", (id_rec,)).fetchone()["senha_hash"] != "senha-nova")
+
+r = anonimo.post(f"/recuperar/{token}", data={"senha": "invasor123", "confirmacao": "invasor123"})
+checar("token ja usado recusado", r.status_code == 400 and not consegue_entrar("rec@a.com", "invasor123"))
+checar("token ja usado nem abre o formulario", anonimo.get(f"/recuperar/{token}").status_code == 400)
+
+with app.test_request_context():
+    token = banco.criar_token(id_rec)
+    conexao = banco.conectar()
+    ontem = (constantes.hoje() - timedelta(days=1)).isoformat()
+    conexao.execute("UPDATE tokens_recuperacao SET expira_em = ? WHERE token = ?", (ontem, token))
+    conexao.commit()
+r = anonimo.post(f"/recuperar/{token}", data={"senha": "invasor123", "confirmacao": "invasor123"})
+checar("token expirado recusado", r.status_code == 400 and not consegue_entrar("rec@a.com", "invasor123"))
+
+with app.test_request_context():
+    conexao = banco.conectar()
+    conexao.execute("UPDATE tokens_recuperacao SET expira_em = ? WHERE token = ?",
+                    (constantes.hoje().isoformat(), token))
+    conexao.commit()
+checar("token vale ate o ultimo dia da validade", anonimo.get(f"/recuperar/{token}").status_code == 200)
+
+r = anonimo.post("/recuperar/inventado", data={"senha": "invasor123", "confirmacao": "invasor123"})
+checar("token inventado recusado", r.status_code == 400 and not consegue_entrar("rec@a.com", "invasor123"))
 
 print(f"\n{n - len(falhas)}/{n} verificacoes passaram")
 if falhas:

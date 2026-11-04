@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block titulo %}Nova senha — Fluxo{% endblock %}
+
+{% block corpo %}
+<div id="tela-entrar" class="center-screen">
+  {% include "_fundo_login.html" %}
+
+  <div class="card login-card">
+    <div class="brand">
+      <img class="brand-mark" src="{{ url_for('static', filename='favicon.svg') }}" alt="">
+      <span class="brand-text">Flu<span>xo</span></span>
+    </div>
+
+    {% if valido %}
+      <form method="post" class="texto-intro">
+        <div class="field">
+          <label for="senha">Senha nova</label>
+          <input id="senha" name="senha" type="password" autocomplete="new-password" required>
+        </div>
+        <div class="field">
+          <label for="confirmacao">Confirme a senha nova</label>
+          <input id="confirmacao" name="confirmacao" type="password" autocomplete="new-password" required>
+        </div>
+
+        {% for texto in get_flashed_messages() %}<p class="erro">{{ texto }}</p>{% endfor %}
+
+        <button class="btn btn-primary btn-block" type="submit">Salvar senha nova</button>
+      </form>
+      <p class="dica">Use uma senha com 6 ou mais caracteres.</p>
+    {% else %}
+      <p class="erro texto-intro">Este link é inválido, expirou ou já foi usado.</p>
+      <p class="dica"><a href="{{ url_for('recuperar') }}">Pedir um link novo</a></p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

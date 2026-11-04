@@ -21,6 +21,7 @@ from constantes import MESES, PALETA, PERFIS, formatar_reais, hoje
 NA_VERCEL = bool(os.environ.get("VERCEL"))
 
 MENSAGEM_RECUPERACAO = "Se existir uma conta com esse e-mail, enviamos as instruções."
+SENHA_MINIMA = 6
 
 segredo = os.environ.get("FLUXO_SEGREDO")
 if not segredo:
@@ -89,6 +90,15 @@ def valor_do_formulario(campo):
         return 0.0
 
 
+def problema_na_senha_nova(senha, confirmacao):
+    """Devolve o que há de errado com a senha nova, ou None se está tudo certo."""
+    if len(senha) < SENHA_MINIMA:
+        return f"A senha precisa ter {SENHA_MINIMA} ou mais caracteres."
+    if senha != confirmacao:
+        return "A confirmação não é igual à senha nova."
+    return None
+
+
 # ------------------------------------------------------------------- acesso
 
 @app.route("/entrar", methods=["GET", "POST"])
@@ -105,8 +115,8 @@ def entrar():
         if not email or not senha:
             flash("Preencha e-mail e senha.", "erro")
         elif modo == "cadastro":
-            if len(senha) < 6:
-                flash("A senha precisa ter 6 ou mais caracteres.", "erro")
+            if len(senha) < SENHA_MINIMA:
+                flash(f"A senha precisa ter {SENHA_MINIMA} ou mais caracteres.", "erro")
             else:
                 usuario_id = banco.criar_usuario(email, senha)
                 if usuario_id is None:
@@ -136,10 +146,39 @@ def recuperar():
     if "usuario_id" in session:
         return redirect(url_for("painel"))
 
-    # A resposta é a mesma existindo a conta ou não: se mudasse, qualquer um
-    # descobriria quem tem conta testando e-mails.
-    mensagem = MENSAGEM_RECUPERACAO if request.method == "POST" else None
-    return render_template("recuperar.html", mensagem=mensagem)
+    if request.method == "POST":
+        usuario = banco.buscar_usuario_por_email(request.form.get("email") or "")
+        if usuario:
+            token = banco.criar_token(usuario["id"])
+            # Ainda não há envio de e-mail. Em desenvolvimento o link sai no
+            # terminal; publicado, nunca: log não é lugar de credencial.
+            if not NA_VERCEL:
+                print("Link de recuperação:",
+                      url_for("redefinir_senha", token=token, _external=True))
+        # A resposta é a mesma existindo a conta ou não: se mudasse, qualquer
+        # um descobriria quem tem conta testando e-mails.
+        return render_template("recuperar.html", mensagem=MENSAGEM_RECUPERACAO)
+
+    return render_template("recuperar.html", mensagem=None)
+
+
+@app.route("/recuperar/<token>", methods=["GET", "POST"])
+def redefinir_senha(token):
+    valido = banco.buscar_token_valido(token) is not None
+
+    if valido and request.method == "POST":
+        senha = request.form.get("senha") or ""
+        problema = problema_na_senha_nova(senha, request.form.get("confirmacao") or "")
+        if problema:
+            flash(problema, "erro")
+        elif banco.redefinir_senha(token, senha):
+            session.clear()
+            flash("Senha alterada. Entre com a senha nova.", "ok")
+            return redirect(url_for("entrar"))
+        else:
+            valido = False
+
+    return render_template("nova_senha.html", valido=valido), (200 if valido else 400)
 
 
 @app.route("/perfil", methods=["GET", "POST"])

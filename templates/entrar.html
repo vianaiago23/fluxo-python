@@ -30,8 +30,10 @@
              autocomplete="{{ 'new-password' if modo == 'cadastro' else 'current-password' }}" required>
     </div>
 
-    {% with mensagens = get_flashed_messages() %}
-      {% for texto in mensagens %}<p class="erro">{{ texto }}</p>{% endfor %}
+    {% with mensagens = get_flashed_messages(with_categories=true) %}
+      {% for categoria, texto in mensagens %}
+        <p class="{{ 'aviso aviso-ok' if categoria == 'ok' else 'erro' }}">{{ texto }}</p>
+      {% endfor %}
     {% endwith %}
 
     <button class="btn btn-primary btn-block" type="submit">

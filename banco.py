@@ -193,6 +193,42 @@ def buscar_token(token):
     ).fetchone()
 
 
+def buscar_token_valido(token):
+    """Devolve o token só se ele existe, não foi usado e não expirou."""
+    linha = buscar_token(token)
+    if linha and not linha["usado"] and linha["expira_em"] >= hoje().isoformat():
+        return linha
+    return None
+
+
+def trocar_senha(usuario_id, senha_nova):
+    """Grava a senha nova e cancela os pedidos de recuperação pendentes."""
+    banco = conectar()
+    banco.execute("UPDATE usuarios SET senha_hash = ? WHERE id = ?",
+                  (generate_password_hash(senha_nova), usuario_id))
+    banco.execute("UPDATE tokens_recuperacao SET usado = 1 WHERE usuario_id = ?",
+                  (usuario_id,))
+    banco.commit()
+
+
+def redefinir_senha(token, senha_nova):
+    """Consome o token e troca a senha. Devolve False se o token não vale."""
+    linha = buscar_token_valido(token)
+    if linha is None:
+        return False
+    banco = conectar()
+    # O "usado = 0" garante que, em dois envios simultâneos, só um passe.
+    cursor = banco.execute(
+        "UPDATE tokens_recuperacao SET usado = 1 WHERE token = ? AND usado = 0",
+        (token,),
+    )
+    consumiu = cursor.rowcount == 1
+    banco.commit()
+    if consumiu:
+        trocar_senha(linha["usuario_id"], senha_nova)
+    return consumiu
+
+
 # ---------------------------------------------------------------- categorias
 
 def listar_categorias(usuario_id, tipo=None):

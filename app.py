@@ -20,6 +20,8 @@ from constantes import MESES, PALETA, PERFIS, formatar_reais, hoje
 # A Vercel define esta variável sozinha quando o sistema está publicado.
 NA_VERCEL = bool(os.environ.get("VERCEL"))
 
+MENSAGEM_RECUPERACAO = "Se existir uma conta com esse e-mail, enviamos as instruções."
+
 segredo = os.environ.get("FLUXO_SEGREDO")
 if not segredo:
     if NA_VERCEL:
@@ -127,6 +129,17 @@ def entrar():
 def sair():
     session.clear()
     return redirect(url_for("entrar"))
+
+
+@app.route("/recuperar", methods=["GET", "POST"])
+def recuperar():
+    if "usuario_id" in session:
+        return redirect(url_for("painel"))
+
+    # A resposta é a mesma existindo a conta ou não: se mudasse, qualquer um
+    # descobriria quem tem conta testando e-mails.
+    mensagem = MENSAGEM_RECUPERACAO if request.method == "POST" else None
+    return render_template("recuperar.html", mensagem=mensagem)
 
 
 @app.route("/perfil", methods=["GET", "POST"])

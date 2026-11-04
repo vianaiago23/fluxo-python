@@ -434,6 +434,63 @@ def datas_de(usuario_id, descricao):
         return [l["data"] for l in banco.listar_todos_lancamentos(usuario_id)
                 if l["descricao"] == descricao]
 
+
+# ======================================================================
+# ITEM 27 — importação de extrato em CSV
+# ======================================================================
+import extrato as leitor                      # noqa: E402
+
+csv_br = ("Data;Descrição;Valor\n"
+          "14/09/2026;Mercado;-1.234,56\n"
+          "15/09/2026;Salário;5000,00\n"
+          "16/09/26;Café;-12,50\n")
+lidos = leitor.ler_csv(csv_br)
+checar("csv (;) le as 3 linhas", len(lidos) == 3)
+checar("csv (;) data DD/MM/AAAA vira AAAA-MM-DD", lidos[0]["data"] == "2026-09-14")
+checar("csv (;) data com ano de 2 digitos", lidos[2]["data"] == "2026-09-16")
+checar("csv (;) valor com milhar e virgula decimal", lidos[0]["valor"] == 1234.56)
+checar("csv (;) valor negativo vira despesa", lidos[0]["tipo"] == "despesa")
+checar("csv (;) valor positivo vira entrada", lidos[1]["tipo"] == "entrada")
+checar("csv (;) descricao mantem o acento", lidos[1]["descricao"] == "Salário")
+checar("csv (;) o valor guardado e sempre positivo", all(l["valor"] > 0 for l in lidos))
+
+csv_us = ("date,description,amount\n"
+          "2026-09-14,Mercado,-50.25\n"
+          "2026-09-15,Pix recebido,100.00\n")
+lidos = leitor.ler_csv(csv_us)
+checar("csv (,) le as 2 linhas", len(lidos) == 2)
+checar("csv (,) data AAAA-MM-DD fica igual", lidos[0]["data"] == "2026-09-14")
+checar("csv (,) valor com ponto decimal", lidos[0]["valor"] == 50.25 and lidos[0]["tipo"] == "despesa")
+checar("csv (,) entrada com ponto decimal", lidos[1]["valor"] == 100.0 and lidos[1]["tipo"] == "entrada")
+
+lidos = leitor.ler_csv("Data;Histórico;Valor\n01/10/2026;Conta de luz;(R$ 230,90)\n"
+                       "02/10/2026;Cliente;R$ 1.000,00\n")
+checar("csv: valor entre parenteses e despesa", lidos[0]["valor"] == 230.9 and lidos[0]["tipo"] == "despesa")
+checar("csv: R$ com milhar e entrada", lidos[1]["valor"] == 1000.0 and lidos[1]["tipo"] == "entrada")
+checar("csv: coluna 'Histórico' vira a descricao", lidos[0]["descricao"] == "Conta de luz")
+
+lidos = leitor.ler_csv("14/09/2026;Padaria;-8,00\n15/09/2026;Pix;20,00\n")
+checar("csv sem cabecalho le data, descricao e valor", len(lidos) == 2 and lidos[0]["descricao"] == "Padaria")
+
+lidos = leitor.ler_csv("Data;Descrição;Valor\n\n14/09/2026;A;-1,00\n\n\n15/09/2026;B;2,00\n")
+checar("csv ignora linhas em branco", len(lidos) == 2)
+
+lidos = leitor.ler_csv("Valor;Descrição;Data\n-9,90;Lanche;14/09/2026\n")
+checar("csv com as colunas em outra ordem", lidos[0]["data"] == "2026-09-14" and lidos[0]["valor"] == 9.9)
+
+bruto = "Data;Descrição;Valor\n14/09/2026;Pão;-3,50\n".encode("latin-1")
+lidos = leitor.ler_extrato("banco.csv", bruto)
+checar("arquivo CSV em latin-1 mantem o acento", len(lidos) == 1 and lidos[0]["descricao"] == "Pão")
+bruto = "Data;Descrição;Valor\n14/09/2026;Pão;-3,50\n".encode("utf-8-sig")
+lidos = leitor.ler_extrato("banco.csv", bruto)
+checar("arquivo CSV em UTF-8 com BOM le o cabecalho", len(lidos) == 1 and lidos[0]["descricao"] == "Pão")
+
+# Os dois checks abaixo apontam fragilidades reais do extrato.py
+checar("csv: data com traco no formato DD-MM-AAAA",
+       len(leitor.ler_csv("Data;Descrição;Valor\n14-09-2026;Mercado;-10,00\n")) == 1)
+checar("csv: data impossivel (31/02) e recusada",
+       leitor.ler_csv("Data;Descrição;Valor\n31/02/2026;Mercado;-10,00\n") == [])
+
 print(f"\n{n - len(falhas)}/{n} verificacoes passaram")
 if falhas:
     print("FALHAS:", *falhas, sep="\n  - ")

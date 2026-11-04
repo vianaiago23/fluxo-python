@@ -107,7 +107,10 @@ c2 = app.test_client()
 c2.post("/entrar", data={"modo": "cadastro", "email": "b@b.com", "senha": "senha123"})
 c2.post("/perfil", data={"perfil": "generico"})
 corpo2 = c2.get("/").get_data(as_text=True)
-checar("conta nova nao ve dados da outra", "Projeto Y" not in corpo2 and "Aluguel" not in corpo2)
+# "Aluguel" também é nome de categoria da conta nova; o que não pode aparecer
+# é a descrição do lançamento da outra conta.
+checar("conta nova nao ve dados da outra",
+       "Projeto Y" not in corpo2 and '<span class="desc">Aluguel' not in corpo2)
 r = c2.post(f"/lancamento/{alvo['id']}/excluir")
 with app.test_request_context():
     lancs = banco.listar_todos_lancamentos(1)

@@ -372,15 +372,21 @@ def aplicar_perfil(usuario_id, chave_perfil):
 
 # --------------------------------------------------------------- lançamentos
 
-def listar_lancamentos_do_mes(usuario_id, ano, mes):
+def listar_lancamentos_do_mes(usuario_id, ano, mes, categoria_id=None):
+    """Lançamentos do mês. Com `categoria_id`, só os daquela categoria.
+
+    O filtro por usuario_id vale sempre: sem ele, trocar o número da
+    categoria na URL mostraria lançamentos de outra conta.
+    """
     prefixo = f"{ano:04d}-{mes:02d}"
-    return conectar().execute(
-        "SELECT l.*, c.nome AS categoria_nome, c.cor AS categoria_cor "
-        "FROM lancamentos l JOIN categorias c ON c.id = l.categoria_id "
-        "WHERE l.usuario_id = ? AND l.data LIKE ? "
-        "ORDER BY l.data DESC, l.id DESC",
-        (usuario_id, prefixo + "%"),
-    ).fetchall()
+    sql = ("SELECT l.*, c.nome AS categoria_nome, c.cor AS categoria_cor "
+           "FROM lancamentos l JOIN categorias c ON c.id = l.categoria_id "
+           "WHERE l.usuario_id = ? AND l.data LIKE ?")
+    parametros = [usuario_id, prefixo + "%"]
+    if categoria_id is not None:
+        sql += " AND l.categoria_id = ?"
+        parametros.append(categoria_id)
+    return conectar().execute(sql + " ORDER BY l.data DESC, l.id DESC", parametros).fetchall()
 
 
 def listar_todos_lancamentos(usuario_id):

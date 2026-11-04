@@ -3,9 +3,9 @@
 
 {% block navegacao %}
 <span class="month-nav">
-  <a href="{{ url_for('painel', ano=anterior[0], mes=anterior[1]) }}" title="Mês anterior">&lsaquo;</a>
+  <a href="{{ url_for('painel', ano=anterior[0], mes=anterior[1], **filtros) }}" title="Mês anterior">&lsaquo;</a>
   <span class="label">{{ MESES[mes - 1] }} {{ ano }}</span>
-  <a href="{{ url_for('painel', ano=seguinte[0], mes=seguinte[1]) }}" title="Próximo mês">&rsaquo;</a>
+  <a href="{{ url_for('painel', ano=seguinte[0], mes=seguinte[1], **filtros) }}" title="Próximo mês">&rsaquo;</a>
 </span>
 {% endblock %}
 
@@ -144,6 +144,30 @@
     </div>
   </div>
 
+  <form class="filtros" method="get" action="{{ url_for('painel') }}">
+    <input type="hidden" name="ano" value="{{ ano }}">
+    <input type="hidden" name="mes" value="{{ mes }}">
+    <div class="filtro">
+      <label for="filtro-categoria">Categoria</label>
+      <select id="filtro-categoria" name="categoria">
+        <option value="">Todas</option>
+        {% for grupo, categorias in [('Entradas', categorias_entrada), ('Despesas', categorias_despesa)] if categorias %}
+          <optgroup label="{{ grupo }}">
+            {% for categoria in categorias %}
+              <option value="{{ categoria['id'] }}" {{ 'selected' if categoria['id'] == categoria_id }}>{{ categoria['nome'] }}</option>
+            {% endfor %}
+          </optgroup>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="filtro-acoes">
+      <button class="btn btn-primary pequeno" type="submit">Filtrar</button>
+      {% if filtros %}
+        <a class="btn btn-ghost pequeno" href="{{ url_for('painel', ano=ano, mes=mes) }}">Limpar</a>
+      {% endif %}
+    </div>
+  </form>
+
   {% for movimento in lancamentos %}
     <div class="ledger-row">
       <span class="date">{{ movimento['data'][8:10] }}/{{ movimento['data'][5:7] }}</span>
@@ -163,18 +187,22 @@
       </span>
     </div>
   {% else %}
+    {% if filtros %}
+      <p class="empty">Nenhum lançamento encontrado com esse filtro.</p>
+    {% else %}
     <p class="empty">
       Nenhum lançamento em {{ MESES[mes - 1] }} ainda.<br><br>
       <a class="btn btn-primary" href="{{ url_for('editar_lancamento') }}">+ Adicionar o primeiro</a>
     </p>
+    {% endif %}
   {% endfor %}
 
   {% if total_lancamentos > 5 %}
     <p class="centro">
       {% if mostrar_todos %}
-        <a class="btn btn-ghost pequeno" href="{{ url_for('painel', ano=ano, mes=mes) }}">Ver menos</a>
+        <a class="btn btn-ghost pequeno" href="{{ url_for('painel', ano=ano, mes=mes, **filtros) }}">Ver menos</a>
       {% else %}
-        <a class="btn btn-ghost pequeno" href="{{ url_for('painel', ano=ano, mes=mes, todos=1) }}">Ver tudo ({{ total_lancamentos }})</a>
+        <a class="btn btn-ghost pequeno" href="{{ url_for('painel', ano=ano, mes=mes, todos=1, **filtros) }}">Ver tudo ({{ total_lancamentos }})</a>
       {% endif %}
     </p>
   {% endif %}

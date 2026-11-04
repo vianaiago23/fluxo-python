@@ -101,6 +101,20 @@ def mes_escolhido():
     return data_de_hoje.year, data_de_hoje.month
 
 
+def categoria_escolhida():
+    """Lê ?categoria= da URL. Devolve o número, ou None para não filtrar.
+
+    Não confere de quem é a categoria: a consulta já filtra pelo usuário,
+    então uma categoria de outra conta simplesmente não mostra nada.
+    """
+    try:
+        numero = int(request.args.get("categoria", ""))
+    except ValueError:
+        return None
+    # Fora dessa faixa o SQLite recusa o número e a tela quebraria.
+    return numero if 0 < numero < 2**63 else None
+
+
 def valor_do_formulario(campo):
     bruto = (request.form.get(campo) or "").replace(".", "").replace(",", ".")
     try:
@@ -227,12 +241,20 @@ def painel():
 
     ano, mes = mes_escolhido()
     entradas, despesas, saldo = analise.resumo_do_mes(usuario_id, ano, mes)
-    lancamentos = banco.listar_lancamentos_do_mes(usuario_id, ano, mes)
+    categoria_id = categoria_escolhida()
+    lancamentos = banco.listar_lancamentos_do_mes(usuario_id, ano, mes, categoria_id)
     mostrar_todos = request.args.get("todos") == "1"
+
+    # Filtros ativos, para os links do painel não perderem a escolha.
+    filtros = {"categoria": categoria_id} if categoria_id is not None else {}
 
     return render_template(
         "painel.html",
         ano=ano, mes=mes,
+        filtros=filtros,
+        categoria_id=categoria_id,
+        categorias_entrada=banco.listar_categorias(usuario_id, "entrada"),
+        categorias_despesa=banco.listar_categorias(usuario_id, "despesa"),
         anterior=analise.mes_anterior(ano, mes),
         seguinte=(ano + 1, 1) if mes == 12 else (ano, mes + 1),
         entradas=entradas, despesas=despesas, saldo=saldo,

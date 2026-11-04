@@ -7,21 +7,36 @@ que as rotas do Flask entregam como se fossem um arquivo.
 import io
 import os
 
-# A pasta pessoal do servidor na nuvem é somente leitura, e o matplotlib
-# precisa de algum lugar para guardar o cache de fontes.
-if os.environ.get("VERCEL"):
-    os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
+from constantes import CINZA, PRATA, VERDE, VERMELHO
 
-import matplotlib  # noqa: E402
+# O matplotlib é a biblioteca mais pesada do projeto: importá-lo custa alguns
+# segundos. Como a maioria das visitas nunca pede um gráfico — a tela de login
+# não tem nenhum — ele só é carregado quando o primeiro gráfico é desenhado.
+# Depois disso fica na memória, e as chamadas seguintes são imediatas.
+_plt = None
 
-matplotlib.use("Agg")  # sem interface gráfica: só gera o arquivo
 
-import matplotlib.pyplot as plt  # noqa: E402
+def _pyplot():
+    """Carrega o matplotlib na primeira vez que um gráfico é pedido."""
+    global _plt
+    if _plt is None:
+        # A pasta pessoal do servidor na nuvem é somente leitura, e o
+        # matplotlib precisa de algum lugar para o cache de fontes.
+        if os.environ.get("VERCEL"):
+            os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
 
-from constantes import CINZA, PRATA, VERDE, VERMELHO  # noqa: E402
+        import matplotlib
+
+        matplotlib.use("Agg")   # sem interface gráfica: só gera o arquivo
+
+        import matplotlib.pyplot
+
+        _plt = matplotlib.pyplot
+    return _plt
 
 
 def _para_png(figura):
+    plt = _pyplot()
     buffer = io.BytesIO()
     figura.savefig(buffer, format="png", dpi=160, transparent=True,
                    bbox_inches="tight", pad_inches=0.04)
@@ -32,6 +47,7 @@ def _para_png(figura):
 
 def rosca(fatias):
     """Gráfico de rosca. `fatias` é uma lista de (nome, valor, cor)."""
+    plt = _pyplot()
     fatias = [f for f in fatias if f[1] > 0]
     figura, eixo = plt.subplots(figsize=(2.6, 2.6))
 
@@ -51,6 +67,7 @@ def rosca(fatias):
 
 def barras_saldo(rotulos, valores):
     """Barras do saldo dos últimos meses: verde quando sobra, vermelho quando falta."""
+    plt = _pyplot()
     figura, eixo = plt.subplots(figsize=(9.4, 1.9))
     cores = [VERDE if v >= 0 else VERMELHO for v in valores]
     eixo.bar(rotulos, valores, color=cores, width=0.55, zorder=3)
@@ -75,6 +92,7 @@ def barras_ano(rotulos, entradas, despesas):
     O eixo dos valores começa sempre em zero. Começando noutro ponto, uma
     diferença pequena entre dois meses pareceria enorme.
     """
+    plt = _pyplot()
     figura, eixo = plt.subplots(figsize=(9.4, 2.6))
 
     if not any(entradas) and not any(despesas):

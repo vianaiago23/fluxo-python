@@ -395,6 +395,45 @@ with app.test_request_context():
     banco.excluir_conta(id_sem_fk)
 checar("exclusao apaga tudo mesmo sem chaves estrangeiras", not any(contar_linhas(id_sem_fk).values()))
 
+
+# ======================================================================
+# PESSOA 4 — funções de apoio para os testes dos itens 27 a 32
+# ======================================================================
+import io                                     # noqa: E402
+
+
+def conta_limpa(email, perfil="arquiteto"):
+    """Cria uma conta nova, já com as categorias do perfil. Devolve (cliente, id)."""
+    cliente = app.test_client()
+    cliente.post("/entrar", data={"modo": "cadastro", "email": email, "senha": "senha123"})
+    cliente.post("/perfil", data={"perfil": perfil})
+    with app.test_request_context():
+        usuario_id = banco.buscar_usuario_por_email(email)["id"]
+    return cliente, usuario_id
+
+
+def tentar(acao):
+    """Roda a ação. Se o servidor estourar erro, devolve None em vez de parar o teste."""
+    try:
+        return acao()
+    except Exception:
+        return None
+
+
+def sem_estouro(resposta):
+    return resposta is not None and resposta.status_code < 500
+
+
+def total_lancamentos(usuario_id):
+    with app.test_request_context():
+        return len(banco.listar_todos_lancamentos(usuario_id))
+
+
+def datas_de(usuario_id, descricao):
+    with app.test_request_context():
+        return [l["data"] for l in banco.listar_todos_lancamentos(usuario_id)
+                if l["descricao"] == descricao]
+
 print(f"\n{n - len(falhas)}/{n} verificacoes passaram")
 if falhas:
     print("FALHAS:", *falhas, sep="\n  - ")

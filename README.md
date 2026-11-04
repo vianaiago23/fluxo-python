@@ -55,12 +55,13 @@ fluxo-python/
 
 ## Banco de dados
 
-Quatro tabelas relacionadas:
+Cinco tabelas relacionadas:
 
 - **usuarios** — conta de acesso (e-mail, senha com hash, nome do negócio)
 - **categorias** — categorias de entrada e de despesa de cada usuário
 - **lancamentos** — cada movimentação: valor, data, categoria e descrição
 - **metas** — limite mensal de gasto por categoria
+- **tokens_recuperacao** — pedidos de recuperação de senha: de quem é, quando expira e se já foi usado
 
 As chaves estrangeiras estão ativas (`PRAGMA foreign_keys = ON`), e apagar
 um usuário apaga em cascata tudo que é dele.
@@ -146,8 +147,8 @@ npx vercel deploy --prod
 ## Testes
 
 O arquivo `testar_fumaca.py` percorre o sistema inteiro num banco temporário
-— cadastro, login, lançamentos, edição, metas, gráficos, PDF e o isolamento
-entre contas — em 28 verificações:
+— cadastro, login, lançamentos, edição, metas, gráficos, PDF, isolamento
+entre contas, recuperação e troca de senha e exclusão de conta:
 
 ```bash
 python testar_fumaca.py

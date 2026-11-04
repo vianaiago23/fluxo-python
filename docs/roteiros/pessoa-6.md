@@ -30,7 +30,7 @@ a forma de um que já existe.
 disso, o que deixa o gráfico de rosca confuso.
 
 **Pronto quando:** criar conta nova, escolher o perfil novo, e as categorias
-aparecerem certas no painel. E `python testar_fumaca.py` continuar 28/28 — o
+aparecerem certas no painel. E `python testar_fumaca.py` continuar em `tudo certo` — o
 teste confere a quantidade de categorias do perfil "arquiteto", então não
 mexa nesse.
 

@@ -26,10 +26,10 @@ Cole isto na primeira mensagem, trocando o que está entre colchetes:
 > - `relatorio.py` — relatório em PDF (fpdf2)
 > - `constantes.py` — cores, meses, modelos de categoria, data no fuso do Brasil
 > - `templates/` — as telas em HTML (Jinja2)
-> - `testar_fumaca.py` — teste automático, 28 verificações
+> - `testar_fumaca.py` — teste automático do sistema
 >
-> O banco tem quatro tabelas: `usuarios`, `categorias`, `lancamentos` e
-> `metas`. O esquema completo está no começo do `banco.py`.
+> O banco tem cinco tabelas: `usuarios`, `categorias`, `lancamentos`, `metas`
+> e `tokens_recuperacao`. O esquema completo está no começo do `banco.py`.
 >
 > Regras do projeto que eu preciso seguir:
 > - SQL só dentro do `banco.py`
@@ -37,7 +37,7 @@ Cole isto na primeira mensagem, trocando o que está entre colchetes:
 >   dado de outro)
 > - consultas usam parâmetros `?`, nunca texto montado na mão
 > - datas usam a função `hoje()` do `constantes.py`, não `date.today()`
-> - antes de commitar, `python testar_fumaca.py` tem que dar 28/28
+> - antes de commitar, `python testar_fumaca.py` tem que terminar em `tudo certo`
 >
 > **Minha tarefa é:** [cole aqui o texto do seu item, tirado do seu roteiro]
 >
@@ -58,7 +58,7 @@ Mande o seu código para ela revisar. É aí que a ajuda rende mais.
 
 - [ ] Eu entendi cada linha do que estou enviando?
 - [ ] Consigo explicar na apresentação por que fiz assim?
-- [ ] `python testar_fumaca.py` deu 28/28?
+- [ ] `python testar_fumaca.py` terminou em `tudo certo`?
 - [ ] `git status` não mostra `.env.local`, `fluxo.db` nem `.venv/`?
 
 Se a resposta de alguma for não, não commite ainda.

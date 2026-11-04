@@ -32,13 +32,13 @@ python dados_exemplo.py
 
 ## 2. Antes de enviar qualquer mudança
 
-Rode os testes. São 28 verificações e levam poucos segundos:
+Rode os testes. Levam poucos segundos:
 
 ```bash
 python testar_fumaca.py
 ```
 
-Se terminar com `28/28 verificacoes passaram`, pode enviar. Se alguma falhar,
+Se terminar com `tudo certo`, pode enviar. Se alguma verificação falhar,
 a saída diz qual — conserte antes de commitar.
 
 ## 3. Como enviar

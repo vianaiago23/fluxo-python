@@ -49,7 +49,7 @@ o usuário, e a mensagem de erro pode revelar caminho de arquivo e estrutura do
 banco. Mensagem curta e um link para voltar ao painel.
 
 **Pronto quando:** abrir `/qualquercoisa` mostra sua página com a cara do
-sistema, e `python testar_fumaca.py` continua dando 28/28.
+sistema, e `python testar_fumaca.py` continua terminando em `tudo certo`.
 
 ---
 

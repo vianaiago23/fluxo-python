@@ -10,7 +10,7 @@ Regra que vale para todos:
 
 ```bash
 git pull                      # sempre antes de começar
-python testar_fumaca.py       # sempre antes de commitar — tem que dar 28/28
+python testar_fumaca.py       # sempre antes de commitar — tem que dar "tudo certo"
 git add <só os arquivos que você mexeu>
 git commit -m "mensagem em português, dizendo o que mudou"
 git push
@@ -51,14 +51,14 @@ da Vercel e do banco hospedado, que estão só com ele.
 Arquivos: `app.py`, `banco.py`, `templates/`. É a frente mais pesada: mexe no
 banco e no login. Comece lendo como a função `entrar()` funciona hoje.
 
-11. Tela de "esqueci minha senha" e a rota que recebe o e-mail
-12. Tabela de token temporário no banco: guarda o código, de quem é e quando expira
-13. Validação do token e troca efetiva da senha
-14. Teste automático da recuperação de senha, incluindo token expirado
-15. Troca de senha dentro de Configurações, para quem já está logado
-16. Teste automático da troca de senha, incluindo senha atual errada
-17. Exclusão de conta: apaga o usuário e tudo que é dele
-18. Teste automático da exclusão: confirma que lançamentos, categorias e metas somem junto
+11. Tela de "esqueci minha senha" e a rota que recebe o e-mail *(feito)*
+12. Tabela de token temporário no banco: guarda o código, de quem é e quando expira *(feito)*
+13. Validação do token e troca efetiva da senha *(feito)*
+14. Teste automático da recuperação de senha, incluindo token expirado *(feito)*
+15. Troca de senha dentro de Configurações, para quem já está logado *(feito)*
+16. Teste automático da troca de senha, incluindo senha atual errada *(feito)*
+17. Exclusão de conta: apaga o usuário e tudo que é dele *(feito)*
+18. Teste automático da exclusão: confirma que lançamentos, categorias e metas somem junto *(feito)*
 
 ## Pessoa 3 — Filtros e relatórios — 8 entregas
 

@@ -372,19 +372,33 @@ def aplicar_perfil(usuario_id, chave_perfil):
 
 # --------------------------------------------------------------- lançamentos
 
-def listar_lancamentos_do_mes(usuario_id, ano, mes, categoria_id=None):
+# Únicas ordenações aceitas. O ORDER BY não aceita parâmetro "?", então o
+# texto que vem da URL só escolhe uma chave daqui e nunca entra no SQL.
+ORDENACOES = {
+    "data_desc": "l.data DESC, l.id DESC",
+    "data_asc": "l.data ASC, l.id ASC",
+    "valor_desc": "l.valor DESC, l.data DESC, l.id DESC",
+    "valor_asc": "l.valor ASC, l.data DESC, l.id DESC",
+}
+ORDENACAO_PADRAO = "data_desc"
+
+
+def listar_lancamentos_do_mes(usuario_id, ano, mes, categoria_id=None,
+                              ordem=ORDENACAO_PADRAO):
     """Lançamentos do mês. Com `categoria_id`, só os daquela categoria."""
     # Dia 31 serve para qualquer mês: a comparação é de texto, não de data.
     return listar_lancamentos(usuario_id, f"{ano:04d}-{mes:02d}-01",
-                              f"{ano:04d}-{mes:02d}-31", categoria_id)
+                              f"{ano:04d}-{mes:02d}-31", categoria_id, ordem)
 
 
-def listar_lancamentos(usuario_id, inicio=None, fim=None, categoria_id=None):
+def listar_lancamentos(usuario_id, inicio=None, fim=None, categoria_id=None,
+                       ordem=ORDENACAO_PADRAO):
     """Lançamentos entre duas datas, inclusive. None deixa o lado em aberto.
 
     As datas são texto AAAA-MM-DD: nesse formato, comparar texto é o mesmo
     que comparar datas. O filtro por usuario_id vale sempre: sem ele, trocar
     o número da categoria na URL mostraria lançamentos de outra conta.
+    `ordem` é uma chave de ORDENACOES; qualquer outra coisa usa a padrão.
     """
     sql = ("SELECT l.*, c.nome AS categoria_nome, c.cor AS categoria_cor "
            "FROM lancamentos l JOIN categorias c ON c.id = l.categoria_id "
@@ -399,7 +413,8 @@ def listar_lancamentos(usuario_id, inicio=None, fim=None, categoria_id=None):
     if categoria_id is not None:
         sql += " AND l.categoria_id = ?"
         parametros.append(categoria_id)
-    return conectar().execute(sql + " ORDER BY l.data DESC, l.id DESC", parametros).fetchall()
+    ordenacao = ORDENACOES.get(ordem, ORDENACOES[ORDENACAO_PADRAO])
+    return conectar().execute(sql + " ORDER BY " + ordenacao, parametros).fetchall()
 
 
 def listar_todos_lancamentos(usuario_id):

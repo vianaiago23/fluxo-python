@@ -523,6 +523,42 @@ for ano_grafico in ("2024", "2010"):
     r = c_anual.get(f"/grafico/anual.png?ano={ano_grafico}")
     checar(f"grafico anual de {ano_grafico} gera PNG", r.status_code == 200 and r.data[:4] == b"\x89PNG")
 
+# --- ordenação da lista de lançamentos
+with app.test_request_context():
+    def valores_em_ordem(ordem):
+        return [(l["data"], l["valor"]) for l in
+                banco.listar_lancamentos(id_anual, "2024-01-01", "2024-12-31", ordem=ordem)]
+
+    por_data_desc = valores_em_ordem("data_desc")
+    por_data_asc = valores_em_ordem("data_asc")
+    por_valor_desc = valores_em_ordem("valor_desc")
+    por_valor_asc = valores_em_ordem("valor_asc")
+    padrao = valores_em_ordem(banco.ORDENACAO_PADRAO)
+    tentativa_injecao = valores_em_ordem("l.valor; DROP TABLE lancamentos; --")
+    tabela_inteira = banco.conectar().execute(
+        "SELECT COUNT(*) AS n FROM lancamentos").fetchone()["n"] > 0
+
+checar("ordenacao por data, mais recente primeiro",
+       [d for d, _ in por_data_desc] == sorted((d for d, _ in por_data_desc), reverse=True))
+checar("ordenacao por data, mais antiga primeiro",
+       [d for d, _ in por_data_asc] == sorted(d for d, _ in por_data_asc))
+checar("ordenacao por valor, maior primeiro",
+       [v for _, v in por_valor_desc] == sorted((v for _, v in por_valor_desc), reverse=True))
+checar("ordenacao por valor, menor primeiro",
+       [v for _, v in por_valor_asc] == sorted(v for _, v in por_valor_asc))
+checar("ordenacao nao perde nem duplica lancamento",
+       sorted(por_valor_asc) == sorted(por_data_desc) and len(por_data_desc) == 5)
+checar("ordenacao desconhecida usa a padrao, sem ir para o SQL",
+       tentativa_injecao == padrao and tabela_inteira)
+
+corpo = c_anual.get("/?de=2024-01-01&ate=2024-12-31&todos=1&ordem=valor_desc").get_data(as_text=True)
+posicoes = [corpo.find(v) for v in ("2.000,00", "1.500,25", "1.000,10", "999,99", "300,40")]
+checar("painel ordena por valor pela URL", -1 not in posicoes and posicoes == sorted(posicoes))
+checar("painel marca a ordenacao escolhida", 'value="valor_desc" selected' in corpo)
+checar("links do painel mantem a ordenacao", "ordem=valor_desc" in corpo)
+r = c_anual.get("/?ordem=l.valor;%20DROP%20TABLE%20lancamentos;--")
+checar("ordenacao invalida na URL nao quebra a tela", r.status_code == 200)
+
 print(f"\n{n - len(falhas)}/{n} verificacoes passaram")
 if falhas:
     print("FALHAS:", *falhas, sep="\n  - ")

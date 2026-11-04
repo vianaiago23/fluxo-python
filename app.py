@@ -140,6 +140,12 @@ def periodo_escolhido():
     return data_da_url("de"), data_da_url("ate")
 
 
+def ordem_escolhida():
+    """Lê ?ordem= da URL. Só aceita as chaves fixas do banco.ORDENACOES."""
+    ordem = request.args.get("ordem", "")
+    return ordem if ordem in banco.ORDENACOES else banco.ORDENACAO_PADRAO
+
+
 def valor_do_formulario(campo):
     bruto = (request.form.get(campo) or "").replace(".", "").replace(",", ".")
     try:
@@ -269,25 +275,32 @@ def painel():
     categoria_id = categoria_escolhida()
     inicio, fim = periodo_escolhido()
     periodo_invertido = bool(inicio and fim and inicio > fim)
+    ordem = ordem_escolhida()
 
     if periodo_invertido:
         lancamentos = []
     elif inicio or fim:
         # Com data preenchida, o período substitui o mês na lista.
-        lancamentos = banco.listar_lancamentos(usuario_id, inicio, fim, categoria_id)
+        lancamentos = banco.listar_lancamentos(usuario_id, inicio, fim, categoria_id, ordem)
     else:
-        lancamentos = banco.listar_lancamentos_do_mes(usuario_id, ano, mes, categoria_id)
+        lancamentos = banco.listar_lancamentos_do_mes(usuario_id, ano, mes, categoria_id, ordem)
     mostrar_todos = request.args.get("todos") == "1"
 
     # Filtros ativos, para os links do painel não perderem a escolha.
     filtros = {chave: valor for chave, valor in
                (("categoria", categoria_id), ("de", inicio), ("ate", fim))
                if valor is not None}
+    # Os links levam também a ordenação, que não é filtro: não esconde nada.
+    parametros = dict(filtros)
+    if ordem != banco.ORDENACAO_PADRAO:
+        parametros["ordem"] = ordem
 
     return render_template(
         "painel.html",
         ano=ano, mes=mes,
         filtros=filtros,
+        parametros=parametros,
+        ordem=ordem,
         categoria_id=categoria_id,
         inicio=inicio, fim=fim,
         periodo_invertido=periodo_invertido,

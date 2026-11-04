@@ -3,9 +3,9 @@
 
 {% block navegacao %}
 <span class="month-nav">
-  <a href="{{ url_for('painel', ano=anterior[0], mes=anterior[1], **filtros) }}" title="Mês anterior">&lsaquo;</a>
+  <a href="{{ url_for('painel', ano=anterior[0], mes=anterior[1], **parametros) }}" title="Mês anterior">&lsaquo;</a>
   <span class="label">{{ MESES[mes - 1] }} {{ ano }}</span>
-  <a href="{{ url_for('painel', ano=seguinte[0], mes=seguinte[1], **filtros) }}" title="Próximo mês">&rsaquo;</a>
+  <a href="{{ url_for('painel', ano=seguinte[0], mes=seguinte[1], **parametros) }}" title="Próximo mês">&rsaquo;</a>
 </span>
 {% endblock %}
 
@@ -176,9 +176,18 @@
       <label for="filtro-ate">Até</label>
       <input id="filtro-ate" type="date" name="ate" value="{{ fim or '' }}">
     </div>
+    <div class="filtro">
+      <label for="filtro-ordem">Ordenar por</label>
+      <select id="filtro-ordem" name="ordem">
+        {% for chave, rotulo in [('data_desc', 'Data, mais recente'), ('data_asc', 'Data, mais antiga'),
+                                 ('valor_desc', 'Valor, maior primeiro'), ('valor_asc', 'Valor, menor primeiro')] %}
+          <option value="{{ chave }}" {{ 'selected' if chave == ordem }}>{{ rotulo }}</option>
+        {% endfor %}
+      </select>
+    </div>
     <div class="filtro-acoes">
       <button class="btn btn-primary pequeno" type="submit">Filtrar</button>
-      {% if filtros %}
+      {% if parametros %}
         <a class="btn btn-ghost pequeno" href="{{ url_for('painel', ano=ano, mes=mes) }}">Limpar</a>
       {% endif %}
     </div>
@@ -218,9 +227,9 @@
   {% if total_lancamentos > 5 %}
     <p class="centro">
       {% if mostrar_todos %}
-        <a class="btn btn-ghost pequeno" href="{{ url_for('painel', ano=ano, mes=mes, **filtros) }}">Ver menos</a>
+        <a class="btn btn-ghost pequeno" href="{{ url_for('painel', ano=ano, mes=mes, **parametros) }}">Ver menos</a>
       {% else %}
-        <a class="btn btn-ghost pequeno" href="{{ url_for('painel', ano=ano, mes=mes, todos=1, **filtros) }}">Ver tudo ({{ total_lancamentos }})</a>
+        <a class="btn btn-ghost pequeno" href="{{ url_for('painel', ano=ano, mes=mes, todos=1, **parametros) }}">Ver tudo ({{ total_lancamentos }})</a>
       {% endif %}
     </p>
   {% endif %}

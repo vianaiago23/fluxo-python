@@ -60,6 +60,14 @@ PERFIS = {
                     "Comissão de Profissionais", "Energia e Água",
                     "Equipamentos", "Marketing", "Impostos", "Outros"],
     },
+    "oficina": {
+        "rotulo": "Oficina Mecânica",
+        "entrada": ["Mão de Obra", "Venda de Peças", "Revisão",
+                    "Funilaria e Pintura", "Outros"],
+        "despesa": ["Aluguel da Oficina", "Compra de Peças", "Ferramentas",
+                    "Salários", "Energia e Água", "Descarte de Resíduos",
+                    "Impostos", "Outros"],
+    },
     "generico": {
         "rotulo": "Genérico / Outro negócio",
         "entrada": ["Vendas", "Serviços", "Outros"],

@@ -18,8 +18,9 @@
         <button class="btn btn-ghost pequeno" type="submit">Salvar</button>
       </form>
 
+      {# tojson e aspas simples: um apóstrofo no nome não pode virar código JavaScript. #}
       <form method="post" class="inline"
-            onsubmit="return confirm('Excluir a categoria {{ categoria['nome'] }}?')">
+            onsubmit='return confirm({{ ("Excluir a categoria " ~ categoria["nome"] ~ "?") | tojson }})'>
         <input type="hidden" name="acao" value="excluir_categoria">
         <input type="hidden" name="categoria_id" value="{{ categoria['id'] }}">
         <button class="icon-btn" type="submit" title="Excluir" aria-label="Excluir a categoria {{ categoria['nome'] }}">&#128465;</button>

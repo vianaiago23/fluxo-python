@@ -11,7 +11,8 @@ def mes_anterior(ano, mes):
 def resumo_do_mes(usuario_id, ano, mes):
     entradas = banco.somar_mes(usuario_id, ano, mes, "entrada")
     despesas = banco.somar_mes(usuario_id, ano, mes, "despesa")
-    return entradas, despesas, entradas - despesas
+    # Arredonda: 0,30 - (0,10 + 0,20) daria -0,00000000000000006 em ponto flutuante.
+    return entradas, despesas, round(entradas - despesas, 2)
 
 
 def resumo_do_ano(usuario_id, ano):

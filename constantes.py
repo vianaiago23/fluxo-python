@@ -97,7 +97,8 @@ PERFIS = {
 
 def formatar_reais(valor):
     """Formata um número no padrão brasileiro: 1234.5 -> 'R$ 1.234,50'."""
-    texto = f"{abs(valor or 0):,.2f}"
+    valor = round(valor or 0, 2)   # sem isto, -0,001 sairia como "-R$ 0,00"
+    texto = f"{abs(valor):,.2f}"
     texto = texto.replace(",", "#").replace(".", ",").replace("#", ".")
-    sinal = "-" if (valor or 0) < 0 else ""
+    sinal = "-" if valor < 0 else ""
     return f"{sinal}R$ {texto}"

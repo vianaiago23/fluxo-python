@@ -34,17 +34,30 @@ def converter_data(texto):
         return None   # data que não existe, como 31/02
     return f"{ano}-{mes}-{dia}"
 
-def converter_valor(texto):
-    """Aceita 'R$ 1.234,56', '-1234.56' e '(1.234,56)'. Devolve float ou None."""
+def converter_valor(texto, ponto_decimal=False):
+    """Aceita 'R$ 1.234,56', 'R$ -50,00', '123,45-', '(1.234,56)' e '1,234.56'.
+
+    Devolve float ou None. Sem vírgula, ponto seguido de três dígitos é milhar
+    (1.500 = mil e quinhentos), a menos que `ponto_decimal` diga que o ponto é
+    sempre decimal, como no OFX.
+    """
     texto = (texto or "").strip()
     if not texto:
         return None
-    negativo = texto.startswith("-") or (texto.startswith("(") and texto.endswith(")"))
+    # O sinal pode vir antes ou depois do R$, e alguns bancos o põem no fim.
+    negativo = "-" in texto or (texto.startswith("(") and texto.endswith(")"))
     texto = re.sub(r"[R$\s()\-]", "", texto, flags=re.IGNORECASE)
     if "," in texto and "." in texto:
-        texto = texto.replace(".", "").replace(",", ".")   # 1.234,56
+        # O separador que aparece por último é o decimal.
+        if texto.rfind(",") > texto.rfind("."):
+            texto = texto.replace(".", "").replace(",", ".")   # 1.234,56
+        else:
+            texto = texto.replace(",", "")                     # 1,234.56
     elif "," in texto:
-        texto = texto.replace(",", ".")                     # 1234,56
+        texto = (texto.replace(",", "") if texto.count(",") > 1   # 1,234,567
+                 else texto.replace(",", "."))                    # 1234,56
+    elif not ponto_decimal and re.fullmatch(r"\d{1,3}(\.\d{3})+", texto):
+        texto = texto.replace(".", "")                            # 1.500
     try:
         valor = float(texto)
     except ValueError:
@@ -54,11 +67,34 @@ def converter_valor(texto):
     return -valor if negativo else valor
 
 
-def _indice_por_palavras(cabecalho, palavras):
+def _indice_por_palavras(cabecalho, palavras, evitar=()):
+    """Primeira coluna com uma das palavras no título e sem nenhuma das `evitar`."""
     for posicao, titulo in enumerate(cabecalho):
-        if any(palavra in titulo for palavra in palavras):
+        if (any(palavra in titulo for palavra in palavras)
+                and not any(palavra in titulo for palavra in evitar)):
             return posicao
     return -1
+
+
+def _achar_cabecalho(linhas):
+    """Procura o cabeçalho nas primeiras linhas: há banco que escreve algo antes dele.
+
+    Devolve (linha do cabeçalho, separador, data, descrição, valor), ou None.
+    """
+    for posicao, linha in enumerate(linhas[:20]):
+        separador = ";" if linha.count(";") >= linha.count(",") else ","
+        cabecalho = [c.strip().lower() for c in next(csv.reader([linha], delimiter=separador), [])]
+        col_data = _indice_por_palavras(cabecalho, PALAVRAS_DATA)
+        # "Data Valor" e "Data Lançamento" são datas, não valor nem descrição.
+        col_valor = _indice_por_palavras(cabecalho, PALAVRAS_VALOR, evitar=PALAVRAS_DATA)
+        if col_data >= 0 and col_valor >= 0:
+            col_descricao = _indice_por_palavras(cabecalho, PALAVRAS_DESCRICAO, evitar=PALAVRAS_DATA)
+            if col_descricao < 0:
+                # Sem título reconhecido: a primeira coluna que não seja data nem valor.
+                livres = [p for p in range(len(cabecalho)) if p not in (col_data, col_valor)]
+                col_descricao = livres[0] if livres else -1
+            return posicao, separador, col_data, col_descricao, col_valor
+    return None
 
 
 def ler_csv(texto):
@@ -66,22 +102,15 @@ def ler_csv(texto):
     if not linhas:
         return []
 
-    separador = ";" if linhas[0].count(";") >= linhas[0].count(",") else ","
-    tabela = list(csv.reader(linhas, delimiter=separador))
-
-    cabecalho = [c.strip().lower() for c in tabela[0]]
-    col_data = _indice_por_palavras(cabecalho, PALAVRAS_DATA)
-    col_valor = _indice_por_palavras(cabecalho, PALAVRAS_VALOR)
-    tem_cabecalho = col_data >= 0 and col_valor >= 0
-
-    if tem_cabecalho:
-        col_descricao = _indice_por_palavras(cabecalho, PALAVRAS_DESCRICAO)
-        if col_descricao < 0:
-            col_descricao = 1
-        primeira_linha = 1
+    achado = _achar_cabecalho(linhas)
+    if achado:
+        posicao, separador, col_data, col_descricao, col_valor = achado
+        primeira_linha = posicao + 1
     else:
+        separador = ";" if linhas[0].count(";") >= linhas[0].count(",") else ","
         col_data, col_descricao, col_valor = 0, 1, 2
         primeira_linha = 0
+    tabela = list(csv.reader(linhas, delimiter=separador))
 
     movimentos = []
     for colunas in tabela[primeira_linha:]:
@@ -91,7 +120,7 @@ def ler_csv(texto):
         valor = converter_valor(colunas[col_valor])
         if data is None or valor is None or valor == 0:
             continue
-        descricao = colunas[col_descricao].strip() if col_descricao < len(colunas) else ""
+        descricao = colunas[col_descricao].strip() if 0 <= col_descricao < len(colunas) else ""
         movimentos.append({
             "data": data,
             "descricao": descricao,
@@ -113,7 +142,7 @@ def ler_ofx(texto):
 
         carimbo = campo("DTPOSTED")
         data = converter_data(f"{carimbo[0:4]}-{carimbo[4:6]}-{carimbo[6:8]}")
-        valor = converter_valor(campo("TRNAMT"))
+        valor = converter_valor(campo("TRNAMT"), ponto_decimal=True)
         if data is None or valor is None or valor == 0:
             continue
         movimentos.append({

@@ -358,8 +358,13 @@ def aplicar_perfil(usuario_id, chave_perfil):
         "(SELECT DISTINCT categoria_id FROM lancamentos WHERE usuario_id = ?)",
         (usuario_id, usuario_id),
     )
+    # As categorias com lançamentos ficam: não cria outra com o mesmo nome.
+    mantidas = {(l["tipo"], l["nome"]) for l in banco.execute(
+        "SELECT tipo, nome FROM categorias WHERE usuario_id = ?", (usuario_id,))}
     for tipo in ("entrada", "despesa"):
         for posicao, nome in enumerate(perfil[tipo]):
+            if (tipo, nome) in mantidas:
+                continue
             banco.execute(
                 "INSERT INTO categorias (usuario_id, tipo, nome, cor) VALUES (?, ?, ?, ?)",
                 (usuario_id, tipo, nome, PALETA[posicao % len(PALETA)]),

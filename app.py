@@ -4,13 +4,14 @@
 Aplicação web feita em Python com Flask. O servidor monta as telas,
 guarda os dados no SQLite, desenha os gráficos e gera o relatório em PDF.
 """
+import calendar
 import hmac
 import math
 import os
 from datetime import date
 from functools import wraps
 
-from flask import (Flask, Response, flash, g, redirect, render_template,
+from flask import (Flask, Response, abort, flash, g, redirect, render_template,
                    request, session, url_for)
 
 import analise
@@ -26,6 +27,7 @@ NA_VERCEL = bool(os.environ.get("VERCEL"))
 
 MENSAGEM_RECUPERACAO = "Se existir uma conta com esse e-mail, enviamos as instruções."
 SENHA_MINIMA = 6
+ID_LIMITE = 2**63   # o maior inteiro do SQLite é 2**63 - 1
 
 # Publicado, o sistema ainda não envia e-mail: oferecer a recuperação seria
 # prometer uma mensagem que nunca chega. Quando o envio existir, é só ligar.
@@ -47,6 +49,7 @@ app.config.update(
     SESSION_COOKIE_HTTPONLY=True,      # o JavaScript da página não lê o cookie
     SESSION_COOKIE_SAMESITE="Lax",     # outro site não usa a sessão do usuário
     SESSION_COOKIE_SECURE=NA_VERCEL,   # publicado, o cookie só viaja em HTTPS
+    MAX_CONTENT_LENGTH=5 * 1024 * 1024,   # extrato maior que 5 MB é recusado
 )
 app.teardown_appcontext(banco.fechar)
 
@@ -80,6 +83,14 @@ def abrir_sessao(usuario_id):
 
 
 @app.before_request
+def recusar_id_impossivel():
+    """Um id maior que o inteiro do SQLite não existe e faria a consulta quebrar."""
+    if any(isinstance(valor, int) and valor >= ID_LIMITE
+           for valor in (request.view_args or {}).values()):
+        abort(404)
+
+
+@app.before_request
 def carregar_usuario():
     g.usuario = None
     if "usuario_id" in session:
@@ -99,7 +110,7 @@ def mes_escolhido():
         mes = int(request.args.get("mes", data_de_hoje.month))
     except ValueError:
         return data_de_hoje.year, data_de_hoje.month
-    if 1 <= mes <= 12:
+    if 1 <= mes <= 12 and 1 <= ano <= 9999:
         return ano, mes
     return data_de_hoje.year, data_de_hoje.month
 
@@ -162,11 +173,9 @@ def data_eh_valida(texto):
 
 
 def valor_do_formulario(campo):
-    bruto = (request.form.get(campo) or "").replace(".", "").replace(",", ".")
-    try:
-        return float(bruto)
-    except ValueError:
-        return 0.0
+    """Lê um valor digitado. Aceita 1.500,00, 150,50 e também 150.50."""
+    valor = leitor_extrato.converter_valor(request.form.get(campo))
+    return 0.0 if valor is None else valor
 
 
 def numero_do_formulario(campo):
@@ -182,10 +191,25 @@ def numero_do_formulario(campo):
         return None
 
 
+def id_valido(bruto):
+    """Converte o texto em id. Devolve None se não puder ser um id do banco."""
+    bruto = (bruto or "").strip()
+    # isascii: isdigit() sozinho aceita "²", que o int() recusa com erro.
+    if not (bruto.isascii() and bruto.isdigit() and len(bruto) <= 19):
+        return None
+    numero = int(bruto)
+    return numero if 0 < numero < ID_LIMITE else None
+
+
 def inteiro_do_formulario(campo):
-    """Lê um número inteiro (como o id de uma categoria). Devolve None se faltar ou não for número."""
-    bruto = (request.form.get(campo) or "").strip()
-    return int(bruto) if bruto.isdecimal() else None
+    """Lê o id de uma categoria. Devolve None se faltar ou não for válido."""
+    return id_valido(request.form.get(campo))
+
+
+def voltar_para_a_tela_anterior():
+    """Volta para a página de onde o pedido veio, mas só se for deste site."""
+    origem = request.referrer or ""
+    return origem if origem.startswith(request.host_url) else url_for("painel")
 
 
 def motivo_para_recusar(valor, data_texto):
@@ -240,6 +264,14 @@ def metodo_nao_permitido(_erro):
         explicacao="Essa página só funciona pelos botões do sistema, e não "
                    "digitando o endereço. Volte ao início e tente por lá.",
     ), 405
+
+
+@app.errorhandler(413)
+def arquivo_grande_demais(_erro):
+    flash("Esse arquivo é grande demais. Envie um extrato de até 5 MB, com um "
+          "período menor se for preciso.", "erro")
+    return redirect(url_for("importar"))
+
 
 @app.errorhandler(500)
 def erro_interno(_erro):
@@ -433,7 +465,7 @@ def editar_lancamento(lancamento_id=None):
         return redirect(url_for("painel"))
 
     if request.method == "POST":
-        categoria_id = request.form.get("categoria_id") or ""
+        categoria_id = id_valido(request.form.get("categoria_id"))
         valor = valor_do_formulario("valor")
         data_mov = request.form.get("data") or ""
         descricao = request.form.get("descricao") or ""
@@ -443,8 +475,7 @@ def editar_lancamento(lancamento_id=None):
             repetir = None
 
         # o tipo não é escolhido à mão: vem da categoria selecionada
-        categoria = (banco.buscar_categoria(usuario_id, int(categoria_id))
-                     if categoria_id.isdecimal() else None)
+        categoria = banco.buscar_categoria(usuario_id, categoria_id) if categoria_id else None
         tipo = categoria["tipo"] if categoria else "entrada"
 
         recusa = ("Escolha a categoria do lançamento. Se faltar alguma, crie "
@@ -461,17 +492,16 @@ def editar_lancamento(lancamento_id=None):
             data_mov = data_eh_valida(data_mov).isoformat()
             if atual:
                 banco.atualizar_lancamento(usuario_id, lancamento_id, tipo,
-                                           int(categoria_id), valor, data_mov, descricao)
+                                           categoria_id, valor, data_mov, descricao)
             else:
                 ano, mes, dia = (int(p) for p in data_mov.split("-"))
                 for repeticao in range(max(1, min(repetir, 24))):
                     total = mes - 1 + repeticao
                     ano_alvo = ano + total // 12
                     mes_alvo = total % 12 + 1
-                    ultimo_dia = [31, 29 if ano_alvo % 4 == 0 else 28, 31, 30, 31, 30,
-                                  31, 31, 30, 31, 30, 31][mes_alvo - 1]
+                    ultimo_dia = calendar.monthrange(ano_alvo, mes_alvo)[1]
                     data_alvo = f"{ano_alvo:04d}-{mes_alvo:02d}-{min(dia, ultimo_dia):02d}"
-                    banco.criar_lancamento(usuario_id, tipo, int(categoria_id),
+                    banco.criar_lancamento(usuario_id, tipo, categoria_id,
                                            valor, data_alvo, descricao)
             return redirect(url_for("painel", ano=data_mov[:4], mes=int(data_mov[5:7])))
 
@@ -489,7 +519,7 @@ def editar_lancamento(lancamento_id=None):
 def excluir_lancamento(lancamento_id):
     banco.excluir_lancamento(session["usuario_id"], lancamento_id)
     flash("Lançamento excluído.", "ok")
-    return redirect(request.referrer or url_for("painel"))
+    return redirect(voltar_para_a_tela_anterior())
 
 
 # -------------------------------------------------------------------- metas
@@ -501,15 +531,16 @@ def nova_meta():
     categorias = banco.listar_categorias(usuario_id, "despesa")
 
     if request.method == "POST":
-        categoria_id = request.form.get("categoria_id") or ""
+        categoria_id = id_valido(request.form.get("categoria_id"))
         limite = valor_do_formulario("valor_limite")
         # só aceita categoria de despesa que pertença a quem está logado
-        categoria = (banco.buscar_categoria(usuario_id, int(categoria_id))
-                     if categoria_id.isdigit() else None)
+        categoria = banco.buscar_categoria(usuario_id, categoria_id) if categoria_id else None
         if not categoria or categoria["tipo"] != "despesa":
             flash("Escolha a categoria de despesa que a meta vai limitar.", "erro")
         elif limite <= 0:
             flash("Informe um limite mensal maior que zero, por exemplo 500,00.", "erro")
+        elif limite > VALOR_MAXIMO:
+            flash(f"Limite alto demais. O máximo é {formatar_reais(VALOR_MAXIMO)}.", "erro")
         else:
             banco.salvar_meta(usuario_id, categoria["id"], limite)
             return redirect(url_for("painel"))
@@ -548,14 +579,18 @@ def configuracoes():
 
         elif acao == "renomear_categoria":
             categoria_id = inteiro_do_formulario("categoria_id")
-            if categoria_id is not None:
-                banco.renomear_categoria(usuario_id, categoria_id, request.form.get("nome", ""))
+            nome = (request.form.get("nome") or "").strip()
+            if not nome:
+                flash("O nome da categoria não pode ficar em branco.", "erro")
+            elif categoria_id is not None:
+                banco.renomear_categoria(usuario_id, categoria_id, nome)
 
         elif acao == "cor_categoria":
             categoria_id = inteiro_do_formulario("categoria_id")
-            if categoria_id is not None:
-                banco.trocar_cor_categoria(usuario_id, categoria_id,
-                                           request.form.get("cor", PALETA[0]))
+            cor = request.form.get("cor")
+            # Só cores da paleta: outro texto quebraria o desenho do gráfico.
+            if categoria_id is not None and cor in PALETA:
+                banco.trocar_cor_categoria(usuario_id, categoria_id, cor)
 
         elif acao == "excluir_categoria":
             categoria_id = inteiro_do_formulario("categoria_id")
@@ -649,13 +684,14 @@ def confirmar_importacao():
     usuario_id = session["usuario_id"]
     gravados = 0
     recusados = 0
+    sem_categoria = 0
 
     for indice in request.form.getlist("incluir"):
-        categoria_id = request.form.get(f"categoria_{indice}") or ""
+        categoria_id = id_valido(request.form.get(f"categoria_{indice}"))
         # a categoria precisa ser do usuário logado; o tipo vem dela, não do formulário
-        categoria = (banco.buscar_categoria(usuario_id, int(categoria_id))
-                     if categoria_id.isdigit() else None)
+        categoria = banco.buscar_categoria(usuario_id, categoria_id) if categoria_id else None
         if categoria is None:
+            sem_categoria += 1
             continue
 
         valor = numero_do_formulario(f"valor_{indice}")
@@ -669,18 +705,20 @@ def confirmar_importacao():
             categoria["tipo"],
             categoria["id"],
             valor,
-            data_mov,
+            data_eh_valida(data_mov).isoformat(),   # sempre AAAA-MM-DD no banco
             request.form.get(f"descricao_{indice}") or "",
         )
         gravados += 1
 
     regra = (f"A data não pode estar no futuro e o valor precisa ser maior que "
              f"zero e de até {formatar_reais(VALOR_MAXIMO)}.")
+    falta_categoria = (f" {sem_categoria} ficaram de fora por não terem categoria."
+                       if sem_categoria else "")
     if gravados and recusados:
         flash(f"{gravados} lançamento(s) importado(s). {recusados} ficaram de "
-              f"fora: {regra} Lance esses à mão, se forem necessários.", "ok")
+              f"fora: {regra} Lance esses à mão, se forem necessários.{falta_categoria}", "ok")
     elif gravados:
-        flash(f"{gravados} lançamento(s) importado(s).", "ok")
+        flash(f"{gravados} lançamento(s) importado(s).{falta_categoria}", "ok")
     elif recusados:
         flash(f"Nenhum lançamento foi importado. {regra}", "erro")
     else:

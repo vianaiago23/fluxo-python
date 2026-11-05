@@ -1287,6 +1287,119 @@ checar("metodo errado (405): devolve 405", r is not None and r.status_code == 40
 checar("metodo errado (405): usa a pagina do sistema", "Fluxo" in corpo and 'href="/"' in corpo)
 checar("metodo errado (405): nao mostra detalhe tecnico", sem_detalhe_tecnico(corpo))
 
+# ======================================================================
+# Correções de bugs: entradas forjadas, extrato, PDF e saldo
+# ======================================================================
+print("\n--- correcoes de bugs")
+import extrato as leitor                      # noqa: E402
+
+for texto, esperado in [("R$ -50,00", -50.0), ("-R$ 50,00", -50.0), ("123,45-", -123.45),
+                        ("1.500", 1500.0), ("1.234.567", 1234567.0), ("1,234.56", 1234.56),
+                        ("1.234,56", 1234.56), ("10.50", 10.5), ("(R$ 230,90)", -230.9)]:
+    checar(f"extrato: {texto} vira {esperado}", leitor.converter_valor(texto) == esperado)
+checar("extrato OFX: ponto e sempre decimal",
+       leitor.ler_ofx("<STMTTRN><DTPOSTED>20261001<TRNAMT>-1.500<MEMO>x</STMTTRN>")[0]["valor"] == 1.5)
+checar("extrato: 'Data Lancamento' nao vira a descricao",
+       leitor.ler_csv("Data Lançamento;Histórico;Valor\n01/10/2026;Luz;-10,00\n")[0]["descricao"] == "Luz")
+checar("extrato: 'Data Valor' nao vira o valor",
+       leitor.ler_csv("Data;Data Valor;Histórico;Valor\n01/10/2026;02/10/2026;Luz;-10,00\n")[0]["valor"] == 10.0)
+checar("extrato: acha o cabecalho depois de linhas soltas",
+       leitor.ler_csv("Banco X\nData;Valor;Histórico\n01/10/2026;-10,00;Luz\n")[0]["descricao"] == "Luz")
+
+cli_bug, id_bug = conta_limpa("bugs@a.com")
+with app.test_request_context():
+    cats_bug = banco.listar_categorias(id_bug)
+    cat_d = next(l["id"] for l in cats_bug if l["tipo"] == "despesa")
+    cat_e = next(l["id"] for l in cats_bug if l["tipo"] == "entrada")
+gigante = "9" * 30
+app.config["PROPAGATE_EXCEPTIONS"] = False
+for rotulo, pedido, esperado in [
+    ("editar com id gigante", lambda: cli_bug.get(f"/lancamento/{gigante}/editar"), 404),
+    ("excluir com id gigante", lambda: cli_bug.post(f"/lancamento/{gigante}/excluir"), 404),
+    ("excluir meta com id gigante", lambda: cli_bug.post(f"/meta/{gigante}/excluir"), 404),
+    ("lancamento com categoria gigante", lambda: cli_bug.post("/lancamento/novo", data={
+        "categoria_id": gigante, "valor": "10", "data": hoje}), 200),
+    ("meta com categoria invalida", lambda: cli_bug.post("/meta/nova", data={
+        "categoria_id": "²", "valor_limite": "10"}), 200),
+    ("meta com limite nan", lambda: cli_bug.post("/meta/nova", data={
+        "categoria_id": cat_d, "valor_limite": "nan"}), 200),
+    ("meta com limite inf", lambda: cli_bug.post("/meta/nova", data={
+        "categoria_id": cat_d, "valor_limite": "inf"}), 200),
+    ("meta acima do maximo", lambda: cli_bug.post("/meta/nova", data={
+        "categoria_id": cat_d, "valor_limite": "99999999,00"}), 200),
+    ("configuracoes com categoria gigante", lambda: cli_bug.post("/configuracoes", data={
+        "acao": "renomear_categoria", "categoria_id": gigante, "nome": "x"}), 302),
+    ("importacao com categoria invalida", lambda: cli_bug.post("/importar/confirmar", data={
+        "incluir": "0", "categoria_0": "²", "valor_0": "1", "data_0": hoje}), 302),
+]:
+    r = pedido()
+    checar(f"{rotulo}: responde {esperado}, sem erro 500", r.status_code == esperado)
+app.config["PROPAGATE_EXCEPTIONS"] = None
+with app.test_request_context():
+    checar("metas forjadas nao foram gravadas", not banco.listar_metas(id_bug, 2026, 1))
+
+cli_bug.post("/lancamento/novo", data={"categoria_id": cat_d, "valor": "150.50", "data": hoje})
+with app.test_request_context():
+    checar("valor com ponto decimal: 150.50 nao vira 15050",
+           [l["valor"] for l in banco.listar_todos_lancamentos(id_bug)] == [150.5])
+
+ano_mes_dia = hoje.replace("-", "")
+cli_bug.post("/importar/confirmar", data={"incluir": "0", "categoria_0": cat_d, "valor_0": "1",
+                                          "data_0": ano_mes_dia, "descricao_0": ""})
+with app.test_request_context():
+    checar("importacao regrava a data como AAAA-MM-DD",
+           all(len(l["data"]) == 10 for l in banco.listar_todos_lancamentos(id_bug)))
+r = cli_bug.post("/importar/confirmar", follow_redirects=True, data={
+    "incluir": ["0", "1"], "categoria_0": cat_d, "categoria_1": "", "valor_0": "2", "valor_1": "3",
+    "data_0": hoje, "data_1": hoje, "descricao_0": "", "descricao_1": ""})
+checar("importacao avisa quantas ficaram sem categoria", "1 ficaram de fora por não terem categoria" in corpo_de(r))
+
+cli_bug.post("/configuracoes", data={"acao": "renomear_categoria", "categoria_id": cat_d, "nome": "   "})
+cli_bug.post("/configuracoes", data={"acao": "cor_categoria", "categoria_id": cat_d, "cor": "naoecor"})
+with app.test_request_context():
+    linha = banco.buscar_categoria(id_bug, cat_d)
+    checar("categoria nao fica com nome em branco", linha["nome"].strip() != "")
+    checar("categoria so aceita cor da paleta", linha["cor"] in constantes.PALETA)
+    banco.renomear_categoria(id_bug, cat_d, "D'Água');alert(1);//")
+corpo = corpo_de(cli_bug.get("/configuracoes"))
+checar("apostrofo no nome nao vira codigo no confirm", "alert(1);//?')" not in corpo and "\\u0027" in corpo)
+
+with app.test_request_context():
+    lanc = banco.listar_todos_lancamentos(id_bug)[0]
+cli_bug.post(f"/lancamento/{lanc['id']}/editar", data={
+    "categoria_id": cat_d, "valor": "10,00", "data": hoje, "descricao": "Café ☕ 日本語 — ok"})
+r = tentar(lambda: cli_bug.get("/relatorio.pdf"))
+checar("PDF nao quebra com emoji na descricao", r is not None and r.status_code == 200)
+
+r = cli_bug.post(f"/lancamento/{lanc['id']}/excluir", headers={"Referer": "https://site-externo.example/x"})
+checar("excluir nao redireciona para outro site", "site-externo" not in r.headers.get("Location", ""))
+
+cli_mod, id_mod = conta_limpa("modelo@a.com")
+with app.test_request_context():
+    cat_mod = banco.listar_categorias(id_mod, "entrada")[0]["id"]
+    banco.criar_lancamento(id_mod, "entrada", cat_mod, 10.0, hoje)
+cli_mod.post("/configuracoes", data={"acao": "aplicar_perfil", "perfil": "arquiteto"})
+with app.test_request_context():
+    nomes_mod = [(l["tipo"], l["nome"]) for l in banco.listar_categorias(id_mod)]
+    checar("reaplicar o modelo nao repete categoria", len(nomes_mod) == len(set(nomes_mod)))
+
+_, id_float = conta_limpa("float@a.com")
+with app.test_request_context():
+    d_f = banco.listar_categorias(id_float, "despesa")[0]["id"]
+    e_f = banco.listar_categorias(id_float, "entrada")[0]["id"]
+    for v in (0.1, 0.2):
+        banco.criar_lancamento(id_float, "despesa", d_f, v, "2026-03-05")
+    banco.criar_lancamento(id_float, "entrada", e_f, 0.3, "2026-03-05")
+    import analise                            # noqa: E402
+    checar("saldo zerado nao vira negativo", analise.resumo_do_mes(id_float, 2026, 3)[2] == 0)
+checar("formatar_reais nao mostra -R$ 0,00", constantes.formatar_reais(-0.001) == "R$ 0,00")
+
+r = cli_bug.post("/importar", data={"extrato": (io.BytesIO(b"x" * (5 * 1024 * 1024 + 1)), "grande.csv")},
+                 content_type="multipart/form-data")
+checar("extrato acima de 5 MB volta para a importacao",
+       r.status_code == 302 and "/importar" in r.headers.get("Location", ""))
+
+
 print(f"\n{n - len(falhas)}/{n} verificacoes passaram")
 if falhas:
     print("FALHAS:", *falhas, sep="\n  - ")

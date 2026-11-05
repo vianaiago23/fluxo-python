@@ -16,6 +16,11 @@ PRATA_CLARO = (232, 237, 234)
 BRANCO = (255, 255, 255)
 
 
+def _texto_seguro(texto):
+    """A fonte do PDF só tem latin-1: outro caractere, como emoji, vira "?" em vez de erro."""
+    return (texto or "").encode("latin-1", "replace").decode("latin-1")
+
+
 class Relatorio(FPDF):
     def footer(self):
         self.set_y(-14)
@@ -53,7 +58,7 @@ def _cabecalho(pdf, nome_negocio, largura):
     pdf.set_xy(32, 19)
     pdf.set_font("helvetica", size=9)
     pdf.set_text_color(*CINZA)
-    pdf.cell(100, 5, f"Relatorio financeiro - {nome_negocio}")
+    pdf.cell(100, 5, f"Relatorio financeiro - {_texto_seguro(nome_negocio)}")
     pdf.set_xy(largura - 74, 19)
     pdf.cell(60, 5, f"Gerado em {hoje().strftime('%d/%m/%Y')}", align="R")
 
@@ -144,8 +149,8 @@ def gerar_pdf(nome_negocio, lancamentos):
                                          movimento["data"][0:4])
                 linha.cell(f"{dia}/{mes_txt}/{ano_txt}")
                 linha.cell("Entrada" if movimento["tipo"] == "entrada" else "Despesa")
-                linha.cell(movimento["categoria_nome"])
-                linha.cell(movimento["descricao"] or "")
+                linha.cell(_texto_seguro(movimento["categoria_nome"]))
+                linha.cell(_texto_seguro(movimento["descricao"]))
                 sinal = "+" if movimento["tipo"] == "entrada" else "-"
                 linha.cell(f"{sinal} {formatar_reais(movimento['valor'])}")
 

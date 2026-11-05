@@ -68,6 +68,14 @@ PERFIS = {
                     "Salários", "Energia e Água", "Descarte de Resíduos",
                     "Impostos", "Outros"],
     },
+    "professor": {
+        "rotulo": "Professor(a) Particular",
+        "entrada": ["Aulas Presenciais", "Aulas On-line", "Pacotes Mensais",
+                    "Material Didático", "Outros"],
+        "despesa": ["Transporte", "Livros e Material", "Internet",
+                    "Plataformas e Aplicativos", "Marketing", "Impostos",
+                    "Outros"],
+    },
     "generico": {
         "rotulo": "Genérico / Outro negócio",
         "entrada": ["Vendas", "Serviços", "Outros"],

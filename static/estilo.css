@@ -149,6 +149,18 @@ label,.rotulo{font-size:11px;color:var(--text-muted);text-transform:uppercase;le
 .filtros .filtro-data{flex:0 1 150px;}
 .filtros .filtro-acoes{display:flex;gap:6px;}
 .row-actions{display:flex;gap:2px;align-items:center;}
+@media (max-width:560px){
+  /* No celular as quatro colunas não cabem: os botões de editar e excluir
+     descem para baixo do valor, e a categoria ocupa as duas linhas. */
+  .ledger-row{grid-template-columns:40px minmax(0,1fr) auto;gap:2px 10px;}
+  .ledger-row .date,.ledger-row > :nth-child(2){grid-row:span 2;}
+  .ledger-row .row-actions{justify-self:end;}
+  /* Categoria e ordenação na linha inteira; só as duas datas dividem uma. */
+  .filtros .filtro{flex:1 1 100%;}
+  .filtros .filtro-data{flex:1 1 120px;}
+  .filtros .filtro-data input{padding-left:8px;padding-right:8px;}
+  .filtros .filtro-acoes{flex:1 1 100%;justify-content:flex-end;}
+}
 .empty{text-align:center;padding:30px 10px;color:var(--text-muted);font-size:13.5px;}
 .footnote{text-align:center;color:var(--text-muted);font-size:11.5px;margin-top:28px;}
 

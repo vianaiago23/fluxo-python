@@ -42,6 +42,12 @@ MESES_CURTOS = [
 
 # Modelos de categorias oferecidos no primeiro acesso.
 PERFIS = {
+    "pessoal": {
+        "rotulo": "Pessoal / Finanças da casa",
+        "entrada": ["Salário", "Renda Extra", "Outros"],
+        "despesa": ["Moradia", "Alimentação", "Lazer", "Transporte",
+                    "Saúde", "Educação", "Outros"],
+    },
     "arquiteto": {
         "rotulo": "Arquiteto(a) / Projetista",
         "entrada": ["Projetos", "Comissão", "Acompanhamento de Projeto"],

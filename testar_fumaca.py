@@ -1442,6 +1442,15 @@ checar("CSV exportado pode ser importado de volta",
        == [("2026-03-05", 1500.5, "entrada"), ("2026-03-06", 200.0, "despesa")])
 
 
+# --- perfil pessoal, com as categorias citadas no plano de negócios
+print("\n--- perfil pessoal")
+_, id_pessoal = conta_limpa("pessoal@a.com", perfil="pessoal")
+with app.test_request_context():
+    nomes_pessoal = {l["nome"] for l in banco.listar_categorias(id_pessoal, "despesa")}
+    checar("perfil pessoal traz as categorias do plano",
+           {"Moradia", "Alimentação", "Lazer", "Transporte"} <= nomes_pessoal)
+
+
 print(f"\n{n - len(falhas)}/{n} verificacoes passaram")
 if falhas:
     print("FALHAS:", *falhas, sep="\n  - ")

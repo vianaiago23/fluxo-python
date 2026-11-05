@@ -91,6 +91,31 @@ seguem a mesma interface (DB-API 2.0), então nenhuma consulta muda.
 - Importação de extrato bancário em CSV e OFX, com tela de revisão
 - Relatório completo em PDF, separado por mês
 
+## Telas
+
+As imagens abaixo usam só dados fictícios, da conta criada por
+`python dados_exemplo.py`.
+
+### Login
+
+![Tela de login com os campos de e-mail e senha](docs/imagens/login.png)
+
+### Painel
+
+![Painel do mês com faturamento líquido, gráficos por categoria, evolução do saldo, metas e lançamentos](docs/imagens/painel.png)
+
+### Lançamento
+
+![Formulário de novo lançamento com categoria, valor, data, descrição e repetição](docs/imagens/lancamento.png)
+
+### Importação de extrato
+
+![Revisão da importação de extrato, com cinco lançamentos para escolher a categoria](docs/imagens/importacao.png)
+
+### Relatório anual
+
+![Relatório anual com gráfico de entradas e despesas e tabela dos doze meses](docs/imagens/relatorio.png)
+
 ## Segurança
 
 - As senhas nunca são guardadas em texto puro: o banco só tem o hash.

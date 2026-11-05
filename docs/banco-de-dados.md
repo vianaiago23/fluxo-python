@@ -283,3 +283,88 @@ As consultas com `LIKE` só aproveitam a primeira coluna: o `LIKE` do SQLite ign
 maiúsculas e minúsculas por padrão e, por isso, não usa este índice para o intervalo
 de datas. O banco lê então todos os lançamentos daquele usuário, mas não os das
 outras contas.
+
+## Chaves estrangeiras e restrições
+
+As restrições abaixo são regras que o próprio banco faz valer. Mesmo que o código
+tenha um erro, o dado inválido é recusado na hora de gravar. Os exemplos foram
+testados com o `ESQUEMA` do `banco.py`.
+
+### `REFERENCES usuarios(id) ON DELETE CASCADE`
+
+`REFERENCES` diz que o valor precisa existir na outra tabela: não dá para gravar um
+lançamento com `categoria_id = 999` se essa categoria não existe.
+`ON DELETE CASCADE` acrescenta o que fazer quando a linha referenciada é apagada:
+apagar junto as linhas que dependem dela.
+
+**Ao apagar uma conta**, somem as categorias, os lançamentos, as metas e os tokens
+dela. Partindo de uma conta com uma linha em cada tabela:
+
+| Depois de `DELETE FROM usuarios` | `usuarios` | `categorias` | `lancamentos` | `metas` | `tokens_recuperacao` |
+|---|---|---|---|---|---|
+| Chaves estrangeiras ligadas | 0 | 0 | 0 | 0 | 0 |
+| Chaves estrangeiras desligadas | 0 | 1 | 1 | 1 | 1 |
+
+**Sem o cascade**, ficariam dados órfãos: valores e descrições financeiras de
+alguém que pediu para sair, sem dono e sem nenhuma tela que os alcance.
+
+Por garantia, a função `excluir_conta()` não depende só disso: ela apaga as tabelas
+uma a uma, na mesma transação, e o `testar_fumaca.py` confere que nada sobra mesmo
+com as chaves desligadas.
+
+Nem toda chave estrangeira do esquema usa cascade, e a diferença é proposital:
+
+| Referência | Ao apagar a categoria | Por quê |
+|---|---|---|
+| `metas.categoria_id` | a meta é apagada junto (`ON DELETE CASCADE`) | uma meta não faz sentido sem a sua categoria |
+| `lancamentos.categoria_id` | o banco recusa com erro (sem `CASCADE`) | apagar a categoria não pode apagar o histórico financeiro |
+
+A função `excluir_categoria()` confere isso antes e mostra uma mensagem pedindo que
+os lançamentos sejam editados ou removidos primeiro.
+
+### `CHECK (tipo IN ('entrada', 'despesa'))`
+
+Impede qualquer outro valor nessa coluna, em `categorias` e em `lancamentos`. Uma
+tentativa de gravar `'transferencia'` termina em erro:
+
+```text
+IntegrityError: CHECK constraint failed: tipo IN ('entrada', 'despesa')
+```
+
+**Sem o `CHECK`**, um valor como `'Despesa'` ou `'saida'`, vindo de um erro no
+código, seria gravado sem aviso. Como `somar_mes()` e `somar_ano()` procuram
+exatamente `'entrada'` e `'despesa'`, esse lançamento ficaria fora de todas as somas:
+o dinheiro existiria no banco, mas não apareceria no saldo.
+
+### `CHECK (valor > 0)`
+
+Recusa valor negativo e também zero, que não representa nenhuma movimentação. A
+tabela `metas` tem a regra equivalente em `CHECK (valor_limite > 0)`.
+
+**O sinal fica no `tipo`, não no valor.** Toda despesa é gravada como um número
+positivo com `tipo = 'despesa'`, e só existe uma forma de registrar cada coisa.
+
+**Sem o `CHECK`**, a mesma despesa de R$ 100 poderia ser gravada como `100` ou como
+`-100`, e as somas passariam a dar errado. O saldo é calculado em `resumo_do_mes()`,
+no `analise.py`, como `entradas - despesas`: uma despesa de `-100` *aumentaria* o saldo em R$ 100. Um
+gasto negativo também reduziria o total comparado com a meta, escondendo um estouro.
+
+Extratos bancários costumam trazer as despesas com valor negativo. Por isso o
+`extrato.py` converte na leitura: usa o sinal para sugerir o tipo e guarda o valor
+absoluto (`abs(valor)`).
+
+### `PRAGMA foreign_keys = ON`
+
+No SQLite, as chaves estrangeiras vêm **desligadas** por padrão, para manter
+compatibilidade com versões antigas. Sem esse comando, todo `REFERENCES` e todo
+`ON DELETE CASCADE` do esquema seriam ignorados, e o banco aceitaria uma categoria
+inexistente sem reclamar.
+
+A configuração vale **por conexão**: não fica salva no arquivo. Toda conexão nova
+começa desligada, mesmo que a anterior tenha ligado. Como o sistema abre uma conexão
+a cada requisição, o comando precisa rodar todas as vezes. Se ele fosse executado só
+ao criar as tabelas, por exemplo, nenhuma requisição teria a proteção.
+
+Por isso ele fica dentro de `abrir_conexao()`, o único ponto por onde o sistema abre
+conexões. No Turso, segundo o comentário nessa função, as chaves já vêm ligadas no
+servidor; se o comando falhar lá, o erro é ignorado.

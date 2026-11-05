@@ -52,6 +52,14 @@ PERFIS = {
         "despesa": ["Combustível", "Documentação", "Marketing",
                     "Comissão de Terceiros", "Impostos", "Outros"],
     },
+    "salao": {
+        "rotulo": "Salão de Beleza",
+        "entrada": ["Cortes e Escovas", "Coloração", "Manicure e Pedicure",
+                    "Estética", "Venda de Produtos", "Outros"],
+        "despesa": ["Aluguel do Salão", "Produtos e Cosméticos",
+                    "Comissão de Profissionais", "Energia e Água",
+                    "Equipamentos", "Marketing", "Impostos", "Outros"],
+    },
     "generico": {
         "rotulo": "Genérico / Outro negócio",
         "entrada": ["Vendas", "Serviços", "Outros"],

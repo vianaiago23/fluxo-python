@@ -45,7 +45,14 @@ button,.btn{cursor:pointer;border:none;border-radius:10px;font-family:inherit;}
 input,select{background:var(--surface-2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:9px 12px;font-size:14px;font-family:inherit;width:100%;}
 input[type=checkbox]{width:auto;accent-color:var(--income);}
 input:focus,select:focus{outline:2px solid var(--income);outline-offset:1px;}
-button:focus-visible,a:focus-visible{outline:2px solid var(--income);outline-offset:2px;}
+/* Foco pelo teclado: anel grosso com uma folga da cor do fundo, para continuar
+   visível sobre o botão verde, sobre as bolinhas de cor e no login escuro. */
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{
+  outline:3px solid var(--income);outline-offset:2px;box-shadow:0 0 0 2px var(--bg);
+}
+.icon-btn:focus-visible,.month-nav a:focus-visible{background:var(--surface-2);color:var(--text);}
+.preset-opt:focus-visible{background:var(--surface-3);border-color:var(--income);}
+.goal-remove:focus-visible{color:var(--danger);}
 label,.rotulo{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;font-weight:700;display:block;margin-bottom:6px;}
 .field{margin-bottom:14px;}
 .linha-campo{display:flex;gap:8px;}

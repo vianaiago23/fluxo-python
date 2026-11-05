@@ -58,7 +58,7 @@
   <div class="card chart-card">
     <h3>Despesas por categoria</h3>
     <div class="donut-wrap">
-      <img src="{{ url_for('grafico', tipo='despesas', ano=ano, mes=mes) }}" alt="Gráfico de despesas por categoria">
+      <img src="{{ url_for('grafico', tipo='despesas', ano=ano, mes=mes) }}" alt="{% if despesas > 0 %}Rosca com as despesas de {{ MESES[mes - 1] }} de {{ ano }} divididas por categoria. O valor de cada categoria está na legenda logo abaixo.{% else %}Ainda não há despesas em {{ MESES[mes - 1] }} de {{ ano }}.{% endif %}">
       {% if despesas > 0 %}
         <span class="donut-center">
           <b class="v">{{ formatar_reais(despesas) }}</b>
@@ -81,7 +81,7 @@
   <div class="card chart-card">
     <h3>Entradas por categoria</h3>
     <div class="donut-wrap">
-      <img src="{{ url_for('grafico', tipo='entradas', ano=ano, mes=mes) }}" alt="Gráfico de entradas por categoria">
+      <img src="{{ url_for('grafico', tipo='entradas', ano=ano, mes=mes) }}" alt="{% if entradas > 0 %}Rosca com as entradas de {{ MESES[mes - 1] }} de {{ ano }} divididas por categoria. O valor de cada categoria está na legenda logo abaixo.{% else %}Ainda não há entradas em {{ MESES[mes - 1] }} de {{ ano }}.{% endif %}">
       {% if entradas > 0 %}
         <span class="donut-center">
           <b class="v">{{ formatar_reais(entradas) }}</b>
@@ -105,7 +105,7 @@
 <div class="card trend-card">
   <h3>Evolução do saldo — últimos 6 meses</h3>
   <img class="grafico-largo" src="{{ url_for('grafico', tipo='saldo', ano=ano, mes=mes) }}"
-       alt="Gráfico do saldo dos últimos seis meses">
+       alt="Barras com o saldo de cada um dos últimos seis meses, até {{ MESES[mes - 1] }} de {{ ano }}: {% for rotulo, valor in saldo_meses %}{{ rotulo }} {{ formatar_reais(valor) }}{{ '; ' if not loop.last else '.' }}{% endfor %}">
 </div>
 
 <div class="card goals-card">

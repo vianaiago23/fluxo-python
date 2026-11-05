@@ -392,6 +392,8 @@ def painel():
         total_lancamentos=len(lancamentos),
         mostrar_todos=mostrar_todos,
         insight=analise.montar_insight(usuario_id, ano, mes),
+        # Os mesmos números do gráfico de saldo, para o texto alternativo dele.
+        saldo_meses=list(zip(*analise.serie_saldo(usuario_id, ano, mes))),
     )
 
 

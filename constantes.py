@@ -22,7 +22,9 @@ VERDE = "#005227"
 VERMELHO = "#B23A1F"
 PRATA = "#AEB8B2"
 TINTA = "#0F241A"
-CINZA = "#69786F"
+# Cinza dos textos secundarios. Escurecido para passar de 4,5:1 inclusive
+# sobre os fundos cinza-claro dos cartoes e botoes (antes era #69786F).
+CINZA = "#5A6961"
 
 # Teto de um lancamento. Nao existe limite tecnico: serve para pegar erro de
 # digitacao, como somar zeros a mais, antes de sujar o historico.

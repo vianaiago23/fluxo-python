@@ -5,7 +5,7 @@
   --surface-3:#E4EAE6;
   --line:#DBE2DE;
   --text:#0F241A;
-  --text-muted:#69786F;
+  --text-muted:#5A6961;
   --income:#005227;
   --income-hover:#006933;
   --expense:#B23A1F;
@@ -113,7 +113,7 @@ label,.rotulo{font-size:11px;color:var(--text-muted);text-transform:uppercase;le
 .donut-wrap img{max-width:100%;max-height:100%;}
 .donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;}
 .donut-center .v{font-family:var(--font-mono);font-weight:800;font-size:14px;text-align:center;}
-.donut-center .l{font-size:9.5px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-top:2px;}
+.donut-center .l{font-size:10.5px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-top:2px;}
 .legend{margin-top:16px;display:flex;flex-direction:column;gap:9px;}
 .legend-row{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;gap:10px;}
 .legend-row .name{display:flex;align-items:center;gap:8px;}

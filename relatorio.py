@@ -10,7 +10,7 @@ from constantes import MESES, formatar_reais, hoje
 VERDE = (0, 82, 39)
 VERMELHO = (178, 58, 31)
 TINTA = (15, 36, 26)
-CINZA = (105, 120, 111)
+CINZA = (90, 105, 97)
 PRATA = (174, 184, 178)
 PRATA_CLARO = (232, 237, 234)
 BRANCO = (255, 255, 255)

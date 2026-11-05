@@ -20,7 +20,7 @@
       <div class="flow-strip">
         {% for linha in por_entrada if linha['total'] > 0 %}
           <span class="flow-seg"
-                style="width: {{ (linha['total'] / entradas * 100) | round(2) }}%; background: {{ linha['cor'] }}"
+                style="width: {{ (linha['total'] / entradas * 100) | round(2) }}%; background: {{ cor_tema(linha['cor']) }}"
                 title="{{ linha['nome'] }}: {{ formatar_reais(linha['total']) }}"></span>
         {% endfor %}
       </div>
@@ -31,7 +31,7 @@
     <div class="chip-row">
       {% for linha in por_entrada %}
         <span class="chip">
-          <span class="dot" style="background: {{ linha['cor'] }}"></span>
+          <span class="dot" style="background: {{ cor_tema(linha['cor']) }}"></span>
           {{ linha['nome'] }} <b class="amt">{{ formatar_reais(linha['total']) }}</b>
         </span>
       {% else %}
@@ -69,7 +69,7 @@
     <div class="legend">
       {% for linha in por_despesa if linha['total'] > 0 %}
         <div class="legend-row">
-          <span class="name"><span class="dot" style="background: {{ linha['cor'] }}"></span>{{ linha['nome'] }}</span>
+          <span class="name"><span class="dot" style="background: {{ cor_tema(linha['cor']) }}"></span>{{ linha['nome'] }}</span>
           <span class="mono">{{ formatar_reais(linha['total']) }}
             <span class="pct">{{ (linha['total'] / despesas * 100) | round | int }}%</span>
           </span>
@@ -92,7 +92,7 @@
     <div class="legend">
       {% for linha in por_entrada if linha['total'] > 0 %}
         <div class="legend-row">
-          <span class="name"><span class="dot" style="background: {{ linha['cor'] }}"></span>{{ linha['nome'] }}</span>
+          <span class="name"><span class="dot" style="background: {{ cor_tema(linha['cor']) }}"></span>{{ linha['nome'] }}</span>
           <span class="mono">{{ formatar_reais(linha['total']) }}
             <span class="pct">{{ (linha['total'] / entradas * 100) | round | int }}%</span>
           </span>
@@ -118,7 +118,7 @@
     {% set pct = (meta['gasto'] / meta['valor_limite'] * 100) if meta['valor_limite'] else 0 %}
     <div class="goal-row">
       <div class="top">
-        <span class="name"><span class="dot" style="background: {{ meta['cor'] }}"></span>{{ meta['nome'] }}</span>
+        <span class="name"><span class="dot" style="background: {{ cor_tema(meta['cor']) }}"></span>{{ meta['nome'] }}</span>
         <span class="nums">
           {{ formatar_reais(meta['gasto']) }} / {{ formatar_reais(meta['valor_limite']) }}
           <form method="post" action="{{ url_for('excluir_meta', meta_id=meta['id']) }}" class="inline">
@@ -203,7 +203,7 @@
     <div class="ledger-row">
       <span class="date">{{ movimento['data'][8:10] }}/{{ movimento['data'][5:7] }}</span>
       <span>
-        <span class="cat-name"><span class="dot" style="background: {{ movimento['categoria_cor'] }}"></span>{{ movimento['categoria_nome'] }}</span>
+        <span class="cat-name"><span class="dot" style="background: {{ cor_tema(movimento['categoria_cor']) }}"></span>{{ movimento['categoria_nome'] }}</span>
         {% if movimento['descricao'] %}<span class="desc">{{ movimento['descricao'] }}</span>{% endif %}
       </span>
       <span class="{{ 'amt-in' if movimento['tipo'] == 'entrada' else 'amt-out' }}">

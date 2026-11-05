@@ -19,8 +19,8 @@ import banco
 import extrato as leitor_extrato
 import graficos
 import relatorio
-from constantes import (MESES, PALETA, PERFIS, VALOR_MAXIMO,
-                        formatar_reais, hoje)
+from constantes import (MESES, PALETA, PERFIS, TEMA_PADRAO, TEMAS, VALOR_MAXIMO,
+                        cor_no_tema, formatar_reais, hoje)
 
 # A Vercel define esta variável sozinha quando o sistema está publicado.
 NA_VERCEL = bool(os.environ.get("VERCEL"))
@@ -100,6 +100,18 @@ def carregar_usuario():
             g.usuario = usuario
         else:
             session.clear()
+
+
+def tema_atual():
+    """Tema deste navegador. Fica em cookie, sem precisar de coluna nova no banco."""
+    tema = request.cookies.get("tema")
+    return tema if tema in TEMAS else TEMA_PADRAO
+
+
+@app.context_processor
+def dados_do_tema():
+    tema = tema_atual()
+    return {"tema": tema, "cor_tema": lambda cor: cor_no_tema(cor, tema)}
 
 
 def mes_escolhido():
@@ -569,6 +581,14 @@ def configuracoes():
             banco.renomear_negocio(usuario_id, request.form.get("nome_negocio", ""))
             flash("Nome atualizado.", "ok")
 
+        elif acao == "tema":
+            resposta = redirect(url_for("configuracoes"))
+            escolha = request.form.get("tema")
+            if escolha in TEMAS:
+                resposta.set_cookie("tema", escolha, max_age=60 * 60 * 24 * 365,
+                                    httponly=True, samesite="Lax", secure=NA_VERCEL)
+            return resposta
+
         elif acao == "nova_categoria":
             nome = (request.form.get("nome") or "").strip()
             tipo = request.form.get("tipo")
@@ -734,19 +754,21 @@ def confirmar_importacao():
 def grafico(tipo):
     usuario_id = session["usuario_id"]
     ano, mes = mes_escolhido()
+    tema = tema_atual()
 
     if tipo in ("entradas", "despesas"):
         genero = "entrada" if tipo == "entradas" else "despesa"
         linhas = banco.total_por_categoria(usuario_id, ano, mes, genero)
-        imagem = graficos.rosca([(l["nome"], l["total"], l["cor"]) for l in linhas])
+        imagem = graficos.rosca([(l["nome"], l["total"], cor_no_tema(l["cor"], tema))
+                                 for l in linhas], tema)
     elif tipo == "saldo":
         rotulos, valores = analise.serie_saldo(usuario_id, ano, mes)
-        imagem = graficos.barras_saldo(rotulos, valores)
+        imagem = graficos.barras_saldo(rotulos, valores, tema)
     elif tipo == "anual":
         meses, _ = analise.resumo_do_ano(usuario_id, ano_escolhido())
         imagem = graficos.barras_ano([m["curto"] for m in meses],
                                      [m["entradas"] for m in meses],
-                                     [m["despesas"] for m in meses])
+                                     [m["despesas"] for m in meses], tema)
     else:
         return "Gráfico desconhecido", 404
 

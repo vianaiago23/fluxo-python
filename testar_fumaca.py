@@ -1451,6 +1451,37 @@ with app.test_request_context():
            {"Moradia", "Alimentação", "Lazer", "Transporte"} <= nomes_pessoal)
 
 
+# --- aparência: tema escuro como padrão, opção clara e gráficos no tema
+print("\n--- tema")
+cli_tema, id_tema = conta_limpa("tema@a.com")
+corpo = corpo_de(cli_tema.get("/"))
+checar("tema escuro e o padrao", 'data-tema="escuro"' in corpo)
+checar("pagina carrega a fonte Inter", "family=Inter" in corpo)
+with app.test_request_context():
+    categoria_tema = banco.listar_categorias(id_tema, "despesa")[0]
+    banco.criar_lancamento(id_tema, "despesa", categoria_tema["id"], 10.0, hoje)
+    cor_clara = constantes.cor_no_tema(categoria_tema["cor"], "claro")
+    cor_escura = constantes.cor_no_tema(categoria_tema["cor"], "escuro")
+checar("cor da categoria muda no tema escuro", cor_clara != cor_escura)
+corpo = corpo_de(cli_tema.get("/"))
+checar("painel escuro usa a cor clareada", cor_escura in corpo)
+ano_t, mes_t = hoje[:4], hoje[5:7]
+png_escuro = cli_tema.get(f"/grafico/despesas.png?ano={ano_t}&mes={mes_t}").get_data()
+r = cli_tema.post("/configuracoes", data={"acao": "tema", "tema": "claro"})
+checar("trocar de tema grava o cookie", "tema=claro" in r.headers.get("Set-Cookie", ""))
+checar("cookie do tema nao e lido por JavaScript", "HttpOnly" in r.headers.get("Set-Cookie", ""))
+corpo = corpo_de(cli_tema.get("/"))
+checar("modo claro aplicado", 'data-tema="claro"' in corpo and cor_clara in corpo)
+png_claro = cli_tema.get(f"/grafico/despesas.png?ano={ano_t}&mes={mes_t}").get_data()
+checar("grafico acompanha o tema", png_claro[:4] == b"\x89PNG" and png_claro != png_escuro)
+r = cli_tema.post("/configuracoes", data={"acao": "tema", "tema": "<script>"})
+checar("tema invalido nao grava cookie", "tema=" not in r.headers.get("Set-Cookie", ""))
+cli_cookie = app.test_client()
+cli_cookie.set_cookie("tema", 'x"><script>')
+corpo = corpo_de(cli_cookie.get("/entrar"))
+checar("cookie adulterado cai no tema padrao", 'data-tema="escuro"' in corpo and "<script>" not in corpo)
+
+
 print(f"\n{n - len(falhas)}/{n} verificacoes passaram")
 if falhas:
     print("FALHAS:", *falhas, sep="\n  - ")

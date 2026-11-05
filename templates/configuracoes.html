@@ -8,7 +8,7 @@
         <input type="hidden" name="acao" value="cor_categoria">
         <input type="hidden" name="categoria_id" value="{{ categoria['id'] }}">
         <input type="hidden" name="cor" value="{{ PALETA[(PALETA.index(categoria['cor']) + 1) % PALETA|length] if categoria['cor'] in PALETA else PALETA[0] }}">
-        <button class="swatch" style="background: {{ categoria['cor'] }}" title="Trocar cor" aria-label="Trocar a cor da categoria {{ categoria['nome'] }}" type="submit"></button>
+        <button class="swatch" style="background: {{ cor_tema(categoria['cor']) }}" title="Trocar cor" aria-label="Trocar a cor da categoria {{ categoria['nome'] }}" type="submit"></button>
       </form>
 
       <form method="post" class="inline cresce">
@@ -48,6 +48,16 @@
       <button class="btn" type="submit">Salvar</button>
     </div>
   </form>
+
+  <h3 class="section-title">Aparência</h3>
+  <form method="post" class="preset-mini-row">
+    <input type="hidden" name="acao" value="tema">
+    <button class="btn preset-mini {{ 'tema-ativo' if tema == 'escuro' }}" name="tema" value="escuro" type="submit"
+            {% if tema == 'escuro' %}aria-pressed="true"{% endif %}>Modo escuro</button>
+    <button class="btn preset-mini {{ 'tema-ativo' if tema == 'claro' }}" name="tema" value="claro" type="submit"
+            {% if tema == 'claro' %}aria-pressed="true"{% endif %}>Modo claro</button>
+  </form>
+  <p class="muted pequeno">A escolha fica salva neste navegador.</p>
 
   <h3 class="section-title">Aplicar modelo pronto</h3>
   <form method="post" class="preset-mini-row"

@@ -18,6 +18,22 @@ PALETA = [
     "#B0872B", "#A8442A", "#35617F", "#6E5A7D", "#C7B9A2",
 ]
 
+# As mesmas cores, clareadas para ter contraste sobre o azul escuro do tema
+# escuro. O banco guarda sempre a cor da PALETA; esta só muda o que é desenhado.
+PALETA_ESCURA = dict(zip(PALETA, [
+    "#2BC47E", "#5FD39B", "#9CCDB3", "#B4C0BA", "#8FA8B8",
+    "#E3B341", "#FF8A70", "#6FB2DE", "#B59AD0", "#DCCFB8",
+]))
+
+TEMAS = ("escuro", "claro")
+TEMA_PADRAO = "escuro"
+
+
+def cor_no_tema(cor, tema):
+    """Cor de uma categoria como ela deve aparecer no tema escolhido."""
+    return PALETA_ESCURA.get(cor, cor) if tema == "escuro" else cor
+
+
 VERDE = "#005227"
 VERMELHO = "#B23A1F"
 PRATA = "#AEB8B2"

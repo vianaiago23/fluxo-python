@@ -12,9 +12,36 @@
   --gold:#8A6A1B;
   --danger:#B3261E;
   --silver:#AEB8B2;
+  --on-income:#FFFFFF;
+  --ok-fundo:rgba(0,82,39,.09);
+  --erro-fundo:rgba(179,38,30,.09);
+  --sombra:rgba(15,36,26,.04);
   --radius:14px;
-  --font:-apple-system,"Segoe UI",system-ui,Roboto,Helvetica,Arial,sans-serif;
-  --font-mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  /* Inter é a tipografia do plano; a pilha seguinte cobre o caso de a fonte não carregar. */
+  --font:"Inter",-apple-system,"Segoe UI",system-ui,Roboto,Helvetica,Arial,sans-serif;
+  --font-mono:"Inter",-apple-system,"Segoe UI",system-ui,Roboto,Helvetica,Arial,sans-serif;
+}
+/* Tema escuro, a identidade do plano: verde sobre azul escuro. Os valores ficam
+   aqui, e o resto da folha só usa as variáveis. */
+html[data-tema="escuro"]{
+  color-scheme:dark;
+  --bg:#0B1A2B;
+  --surface:#10233A;
+  --surface-2:#18304C;
+  --surface-3:#21405F;
+  --line:#2A4766;
+  --text:#E8F0F2;
+  --text-muted:#A9BAC6;
+  --income:#2BC47E;
+  --income-hover:#3DD68F;
+  --expense:#FF8A70;
+  --gold:#E3B341;
+  --danger:#FF8A80;
+  --silver:#7E93A5;
+  --on-income:#06231A;
+  --ok-fundo:rgba(43,196,126,.14);
+  --erro-fundo:rgba(255,138,128,.14);
+  --sombra:rgba(0,0,0,.25);
 }
 *{box-sizing:border-box;}
 html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--font);-webkit-font-smoothing:antialiased;}
@@ -32,10 +59,10 @@ h3{font-size:14px;color:var(--text-muted);font-weight:700;margin:0;}
 button,.btn{cursor:pointer;border:none;border-radius:10px;font-family:inherit;}
 .btn{display:inline-flex;align-items:center;justify-content:center;background:var(--surface-2);color:var(--text);padding:10px 16px;font-weight:700;font-size:13.5px;transition:background .15s;}
 .btn:hover{background:var(--surface-3);}
-.btn-primary{background:var(--income);color:#FFFFFF;}
+.btn-primary{background:var(--income);color:var(--on-income);}
 .btn-primary:hover{background:var(--income-hover);}
-.btn-danger{background:rgba(179,38,30,.10);color:var(--danger);}
-.btn-danger:hover{background:rgba(179,38,30,.18);}
+.btn-danger{background:var(--erro-fundo);color:var(--danger);}
+.btn-danger:hover{background:var(--surface-3);}
 .btn-ghost{background:transparent;color:var(--text-muted);padding:8px 10px;}
 .btn-ghost:hover{color:var(--text);}
 .btn-block{width:100%;}
@@ -56,11 +83,11 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{
 label,.rotulo{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;font-weight:700;display:block;margin-bottom:6px;}
 .field{margin-bottom:14px;}
 .linha-campo{display:flex;gap:8px;}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:0 1px 2px rgba(15,36,26,.04);margin-bottom:16px;}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:0 1px 2px var(--sombra);margin-bottom:16px;}
 
 .aviso{border-radius:10px;padding:11px 15px;font-size:13.5px;margin:0 0 14px;}
-.aviso-ok{background:rgba(0,82,39,.09);color:var(--income);}
-.aviso-erro{background:rgba(179,38,30,.09);color:var(--danger);}
+.aviso-ok{background:var(--ok-fundo);color:var(--income);}
+.aviso-erro{background:var(--erro-fundo);color:var(--danger);}
 .erro{color:var(--danger);font-size:12.5px;margin:0 0 12px;}
 .dica{color:var(--text-muted);font-size:12px;text-align:center;margin:10px 0 0;}
 
@@ -183,7 +210,8 @@ label,.rotulo{font-size:11px;color:var(--text-muted);text-transform:uppercase;le
 .form-acoes{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;}
 .section-title{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);font-weight:700;margin:22px 0 10px;}
 .cat-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
-.swatch{width:24px;height:24px;border-radius:50%;flex:none;border:2px solid rgba(15,36,26,.15);padding:0;}
+.swatch{width:24px;height:24px;border-radius:50%;flex:none;border:2px solid var(--line);padding:0;}
+.tema-ativo{outline:2px solid var(--income);outline-offset:1px;}
 .add-cat-row{display:flex;gap:8px;margin-top:10px;}
 .add-cat-row .btn{white-space:nowrap;}
 .preset-mini-row{display:flex;gap:8px;flex-wrap:wrap;}
@@ -211,7 +239,7 @@ label,.rotulo{font-size:11px;color:var(--text-muted);text-transform:uppercase;le
 }
 
 /* ===== tela de login: fundo escuro com moedas =====
-   As variáveis valem só aqui dentro; o resto do sistema segue claro. */
+   As variáveis valem só aqui dentro: o login é sempre escuro, em qualquer tema. */
 #tela-entrar{
   --bg:#0A0A0A;--surface:#131313;
   --surface-2:rgba(255,255,255,.06);--surface-3:rgba(255,255,255,.10);

@@ -1207,6 +1207,86 @@ importado = [l for l in lancs if l["descricao"] == "do extrato"]
 checar("importacao grava o valor com ponto decimal, sem multiplicar",
        len(importado) == 1 and abs(importado[0]["valor"] - 7400.0) < 0.01)
 
+
+# ======================================================================
+# ITEM 33 — páginas de erro: a do sistema, sem detalhe técnico
+# ======================================================================
+anonimo_erro = app.test_client()
+cli_erro, id_erro = conta_limpa("erro@a.com")
+
+# Nada disto pode aparecer para quem está olhando a tela de erro
+TERMOS_TECNICOS = ("Traceback", 'File "', ".py", "sqlite", "SELECT ", "INSERT ", "DROP TABLE",
+                   "Werkzeug", "Flask", "RuntimeError", "Exception", "senha_hash",
+                   "tokens_recuperacao", "usuarios", "lancamentos", "C:\\", "/home/")
+
+
+def sem_detalhe_tecnico(corpo):
+    return not any(termo in corpo for termo in TERMOS_TECNICOS)
+
+
+def corpo_de(resposta):
+    return resposta.get_data(as_text=True) if resposta is not None else ""
+
+
+# --- 404: endereço que não existe
+for quem, cliente in (("sem login", anonimo_erro), ("logado", cli_erro)):
+    r = tentar(lambda: cliente.get("/endereco-que-nao-existe"))
+    corpo = corpo_de(r)
+    checar(f"404 ({quem}): endereco inexistente devolve 404", r is not None and r.status_code == 404)
+    checar(f"404 ({quem}): usa a pagina do sistema", "Página não encontrada" in corpo and "Fluxo" in corpo)
+    checar(f"404 ({quem}): tem link para voltar ao inicio", 'href="/"' in corpo)
+    checar(f"404 ({quem}): nao mostra detalhe tecnico", sem_detalhe_tecnico(corpo))
+
+r = tentar(lambda: anonimo_erro.post("/endereco-que-nao-existe"))
+checar("404 em POST tambem usa a pagina do sistema", r is not None and r.status_code == 404
+       and "Página não encontrada" in corpo_de(r))
+r = tentar(lambda: anonimo_erro.get("/static/arquivo-que-nao-existe.css"))
+checar("404 de arquivo estatico tambem usa a pagina do sistema", r is not None and r.status_code == 404
+       and "Página não encontrada" in corpo_de(r))
+r = tentar(lambda: cli_erro.get("/lancamento/abc/editar"))
+checar("404 de id que nao e numero usa a pagina do sistema", r is not None and r.status_code == 404
+       and "Página não encontrada" in corpo_de(r))
+
+# o endereço digitado não pode voltar escrito na página (seria uma brecha para injetar código)
+r = tentar(lambda: anonimo_erro.get("/<script>alert(1)</script>"))
+checar("404 nao repete na tela o endereco digitado", r is not None and "<script>alert(1)" not in corpo_de(r))
+r = tentar(lambda: anonimo_erro.get("/x'; DROP TABLE usuarios;--"))
+checar("404 de endereco com SQL nao mostra detalhe tecnico",
+       r is not None and r.status_code == 404 and sem_detalhe_tecnico(corpo_de(r)))
+
+# --- 500: falha interna simulada, com uma mensagem cheia de detalhes que NÃO pode vazar
+listar_de_verdade = banco.listar_categorias
+
+
+def listar_com_falha(*_args, **_kwargs):
+    raise RuntimeError("falha simulada: tabela usuarios em C:\\segredo\\fluxo.db")
+
+
+banco.listar_categorias = listar_com_falha
+app.config["PROPAGATE_EXCEPTIONS"] = False   # no teste o erro subiria até aqui; queremos a tela que a pessoa veria
+app.logger.disabled = True                    # o erro vai para o log do servidor; sem isso sujaria a saída do teste
+try:
+    r = tentar(lambda: cli_erro.get("/"))
+finally:
+    banco.listar_categorias = listar_de_verdade
+    app.config["PROPAGATE_EXCEPTIONS"] = None
+    app.logger.disabled = False
+corpo = corpo_de(r)
+checar("falha interna devolve 500", r is not None and r.status_code == 500)
+checar("500 usa a pagina do sistema", "Alguma coisa quebrou" in corpo and "Fluxo" in corpo)
+checar("500 nao mostra a mensagem do erro", "falha simulada" not in corpo and "segredo" not in corpo)
+checar("500 nao mostra detalhe tecnico", sem_detalhe_tecnico(corpo))
+checar("500 tranquiliza: os dados nao foram perdidos", "não foram perdidos" in corpo)
+r = tentar(lambda: cli_erro.get("/"))
+checar("depois da falha, o painel volta a abrir", r is not None and r.status_code == 200)
+
+# --- 405: abrir pelo endereço uma rota que só aceita POST (ex.: /lancamento/1/excluir)
+r = tentar(lambda: cli_erro.get("/lancamento/1/excluir"))
+corpo = corpo_de(r)
+checar("metodo errado (405): devolve 405", r is not None and r.status_code == 405)
+checar("metodo errado (405): usa a pagina do sistema", "Fluxo" in corpo and 'href="/"' in corpo)
+checar("metodo errado (405): nao mostra detalhe tecnico", sem_detalhe_tecnico(corpo))
+
 print(f"\n{n - len(falhas)}/{n} verificacoes passaram")
 if falhas:
     print("FALHAS:", *falhas, sep="\n  - ")

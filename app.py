@@ -6,8 +6,7 @@ guarda os dados no SQLite, desenha os gráficos e gera o relatório em PDF.
 import hmac
 import math
 import os
-import hmac
-import os
+
 from functools import wraps
 
 from flask import (Flask, Response, flash, g, redirect, render_template,
@@ -265,7 +264,7 @@ def editar_lancamento(lancamento_id=None):
         return redirect(url_for("painel"))
 
     if request.method == "POST":
-                categoria_id = request.form.get("categoria_id") or ""
+        categoria_id = request.form.get("categoria_id") or ""
         valor = valor_do_formulario("valor")
         data_mov = leitor_extrato.converter_data(request.form.get("data"))
         descricao = request.form.get("descricao") or ""
@@ -287,10 +286,6 @@ def editar_lancamento(lancamento_id=None):
             flash("Escolha uma data válida.", "erro")
         elif repetir is None:
             flash("Em \"repetir\", informe quantos meses seguidos como um número inteiro.", "erro")
-        elif valor <= 0:
-            flash("Informe um valor maior que zero.", "erro")
-        elif not data_mov:
-            flash("Escolha uma data.", "erro")
         else:
             if atual:
                 banco.atualizar_lancamento(usuario_id, lancamento_id, tipo,
@@ -376,7 +371,7 @@ def configuracoes():
             else:
                 flash("Informe o nome da categoria.", "erro")
 
-                elif acao == "renomear_categoria":
+        elif acao == "renomear_categoria":
             categoria_id = numero_do_formulario("categoria_id")
             if categoria_id is not None:
                 banco.renomear_categoria(usuario_id, categoria_id, request.form.get("nome", ""))

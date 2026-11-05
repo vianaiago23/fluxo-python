@@ -1400,6 +1400,23 @@ checar("extrato acima de 5 MB volta para a importacao",
        r.status_code == 302 and "/importar" in r.headers.get("Location", ""))
 
 
+# --- metas: o aviso também aparece em texto, não só na cor da barra
+print("\n--- aviso das metas em texto")
+cli_meta, id_meta = conta_limpa("avisometa@a.com")
+with app.test_request_context():
+    d_meta = banco.listar_categorias(id_meta, "despesa")[0]["id"]
+cli_meta.post("/meta/nova", data={"categoria_id": d_meta, "valor_limite": "100,00"})
+cli_meta.post("/lancamento/novo", data={"categoria_id": d_meta, "valor": "50,00", "data": hoje})
+corpo = corpo_de(cli_meta.get("/"))
+checar("meta em 50%: sem aviso", "goal-alerta" not in corpo)
+cli_meta.post("/lancamento/novo", data={"categoria_id": d_meta, "valor": "35,00", "data": hoje})
+corpo = corpo_de(cli_meta.get("/"))
+checar("meta em 85%: aviso de atencao", "85% do limite" in corpo)
+cli_meta.post("/lancamento/novo", data={"categoria_id": d_meta, "valor": "40,00", "data": hoje})
+corpo = corpo_de(cli_meta.get("/"))
+checar("meta estourada: diz quanto passou", "Limite estourado" in corpo and "R$ 25,00" in corpo)
+
+
 print(f"\n{n - len(falhas)}/{n} verificacoes passaram")
 if falhas:
     print("FALHAS:", *falhas, sep="\n  - ")

@@ -130,6 +130,11 @@
         <div class="bar-fill" style="width: {{ [pct, 100] | min | round(1) }}%;
              background: {{ 'var(--danger)' if pct > 100 else ('var(--gold)' if pct >= 80 else 'var(--income)') }}"></div>
       </div>
+      {% if pct > 100 %}
+        <p class="goal-alerta goal-estouro">Limite estourado: {{ formatar_reais(meta['gasto'] - meta['valor_limite']) }} acima da meta.</p>
+      {% elif pct >= 80 %}
+        <p class="goal-alerta">Atenção: {{ pct | round | int }}% do limite já foi usado.</p>
+      {% endif %}
     </div>
   {% else %}
     <p class="empty pequeno">Defina um limite mensal para alguma categoria de despesa e acompanhe aqui.</p>

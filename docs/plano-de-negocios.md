@@ -215,7 +215,7 @@ anteriores precisam de dinheiro próprio. A projeção também não desconta can
 | O PDF diz | O que foi conferido | Decisão |
 |---|---|---|
 | "GuiaBolso (Olivia)" é um concorrente atual | São dois aplicativos diferentes, e ambos foram encerrados em 2022: o Guiabolso foi comprado pelo PicPay, e a Olivia, pelo Nubank ([Finsiders][finsiders]) | fora da lista de concorrentes |
-| Modo escuro é parte da identidade do produto | A interface atual tem fundo claro (`static/estilo.css`) | listado como "ainda não existe" |
+| Modo escuro é parte da identidade do produto | Só a tela de login é escura; as telas internas têm fundo claro e não há opção de modo escuro | listado como "ainda não existe" |
 | O perfil inclui sincronização bancária | O sistema não se conecta a bancos | listado como "ainda não existe" |
 | Exportação em CSV e PDF | O sistema só exporta em PDF; o CSV serve apenas para importar | listado como "ainda não existe" |
 | Notificação push após 3 dias sem uso | Não existe no sistema | listado como "ainda não existe" |

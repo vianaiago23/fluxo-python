@@ -141,3 +141,145 @@ ele: `WHERE id = ? AND usuario_id = ?`.
 O `nome` não é `UNIQUE`: o banco deixa um usuário ter duas categorias com o mesmo
 nome, e até trocar de modelo pode gerar repetição, porque `aplicar_perfil()` mantém
 as categorias que já têm lançamentos.
+
+## Tabela `lancamentos`
+
+É a tabela principal: cada entrada ou despesa registrada vira uma linha.
+
+| Coluna | Tipo | Aceita vazio? | Para que serve |
+|---|---|---|---|
+| `id` | `INTEGER`, chave primária | não (gerado sozinho) | identifica o lançamento |
+| `usuario_id` | `INTEGER`, chave estrangeira para `usuarios(id)` | não | de quem é o lançamento |
+| `categoria_id` | `INTEGER`, chave estrangeira para `categorias(id)` | não | em qual categoria ele entra |
+| `tipo` | `TEXT`, com `CHECK` | não | `'entrada'` ou `'despesa'` |
+| `valor` | `REAL`, com `CHECK` | não | quanto foi, sempre maior que zero |
+| `data` | `TEXT` | não | dia da movimentação, no formato `AAAA-MM-DD` |
+| `descricao` | `TEXT` | não (padrão `''`) | observação opcional; em branco quando não há |
+
+### Por que guardar `usuario_id` e `tipo`, se a categoria já tem os dois?
+
+Dava para descobrir o dono e o tipo de um lançamento olhando a categoria dele. Em
+teoria, repetir essas colunas seria redundante. A repetição é de propósito, por
+três motivos.
+
+**1. As consultas mais usadas ficam em uma tabela só.** O painel soma as entradas
+e as despesas do mês toda vez que abre. Com as colunas repetidas, `somar_mes()`
+não precisa de `JOIN`:
+
+```sql
+SELECT COALESCE(SUM(valor), 0) AS total FROM lancamentos
+WHERE usuario_id = ? AND tipo = ? AND data LIKE ?
+```
+
+Sem elas, toda soma teria de juntar duas tabelas para descobrir o dono e o tipo:
+
+```sql
+SELECT COALESCE(SUM(l.valor), 0) AS total
+FROM lancamentos l JOIN categorias c ON c.id = l.categoria_id
+WHERE c.usuario_id = ? AND c.tipo = ? AND l.data LIKE ?
+```
+
+O `somar_ano()` e a evolução do saldo aproveitam o mesmo atalho. Só entra `JOIN`
+quando é preciso mostrar o nome ou a cor da categoria.
+
+**2. O índice depende disso.** Um índice só cobre colunas de uma mesma tabela.
+O `idx_lancamentos_usuario_data` (explicado mais adiante) só pode começar por
+`usuario_id` porque essa coluna está em `lancamentos`.
+
+**3. O passado não muda.** O `tipo` do lançamento registra o que ele era quando foi
+gravado. Se uma categoria um dia mudasse de despesa para entrada e o tipo viesse
+só dela, todos os lançamentos antigos mudariam de lado junto, e o saldo de meses
+já fechados seria outro. Com a coluna própria, eles continuam como foram gravados.
+Hoje nenhuma tela muda o tipo de uma categoria, mas o banco fica protegido se isso
+vier a existir.
+
+### O custo da repetição
+
+Dado repetido pode ficar diferente, e o banco não impede isso. Ele aceita um
+lançamento com tipo `'entrada'` em uma categoria de despesa, ou com o `usuario_id`
+de uma pessoa e a categoria de outra, porque cada `REFERENCES` só confere se a
+linha referenciada existe.
+
+Quem garante a coerência é a aplicação. O tipo não é escolhido à mão: o `app.py`
+busca a categoria com `buscar_categoria(usuario_id, categoria_id)`, que só a
+encontra se for do usuário logado, e copia o tipo dela para o lançamento. Por
+isso a regra de que tudo passa pelo `banco.py` e pelas rotas é importante.
+
+## Tabela `metas`
+
+Uma meta é o limite de gasto mensal de uma categoria. O sistema compara esse
+limite com o que já foi gasto no mês e avisa a partir de 80% e acima de 100%.
+
+| Coluna | Tipo | Aceita vazio? | Para que serve |
+|---|---|---|---|
+| `id` | `INTEGER`, chave primária | não (gerado sozinho) | identifica a meta |
+| `usuario_id` | `INTEGER`, chave estrangeira para `usuarios(id)` | não | de quem é a meta |
+| `categoria_id` | `INTEGER`, `UNIQUE`, chave estrangeira para `categorias(id)` | não | a categoria limitada |
+| `valor_limite` | `REAL`, com `CHECK` | não | limite por mês, sempre maior que zero |
+
+A tabela não guarda quanto já foi gasto. Esse valor é calculado a cada consulta em
+`listar_metas()`, somando os lançamentos, e por isso nunca fica desatualizado. A
+meta também não tem mês: o mesmo limite vale para todos os meses.
+
+### Por que `categoria_id` é `UNIQUE`
+
+O `UNIQUE` impede que a mesma categoria tenha duas metas. Sem ele, "Transporte"
+poderia ter um limite de R$ 700 e outro de R$ 900 ao mesmo tempo. O painel
+mostraria duas barras para a mesma categoria e não haveria como saber qual limite
+vale.
+
+Essa restrição também é o que faz `salvar_meta()` funcionar. A função usa
+`ON CONFLICT(categoria_id) DO UPDATE`: se a categoria ainda não tem meta, cria; se
+já tem, só troca o valor. O SQLite recusa esse comando quando a coluna não é
+`UNIQUE`, então editar uma meta depende da restrição.
+
+## Índice `idx_lancamentos_usuario_data`
+
+```sql
+CREATE INDEX IF NOT EXISTS idx_lancamentos_usuario_data
+    ON lancamentos (usuario_id, data);
+```
+
+Um índice funciona como o índice de um livro: em vez de ler a tabela inteira, o
+banco vai direto às linhas que interessam. Este existe porque quase toda tela
+pergunta a mesma coisa: **os lançamentos de um usuário em um período**. É o caso
+da lista do painel e do relatório anual:
+
+```sql
+SELECT ... FROM lancamentos
+WHERE usuario_id = ? AND data BETWEEN ? AND ?
+```
+
+### Por que nessa ordem
+
+O índice fica ordenado primeiro por usuário e, dentro de cada usuário, por data,
+como uma lista telefônica ordenada por sobrenome e depois por nome. Assim, os
+lançamentos de um usuário em um mês ficam todos vizinhos. O banco acha o começo do
+trecho e lê até o fim do período.
+
+A regra geral é colocar primeiro a coluna comparada com igualdade
+(`usuario_id = ?`) e depois a comparada com intervalo (`data BETWEEN`). Na ordem inversa,
+`(data, usuario_id)`, o banco percorreria os lançamentos de **todos** os usuários
+naquele período para separar os de um só, e o trabalho cresceria junto com o
+número de contas.
+
+A ordem também define o que o índice não ajuda. Como ele começa por `usuario_id`,
+uma busca só por data não consegue usá-lo. Isso não atrapalha, porque as consultas
+de lançamentos do sistema sempre filtram por usuário.
+
+### O que o `EXPLAIN QUERY PLAN` mostra
+
+O comando `EXPLAIN QUERY PLAN` mostra como o SQLite vai executar uma consulta. Este
+é o resultado com o esquema do `banco.py`, no SQLite 3.51:
+
+| Consulta | Exemplo no código | Como o índice é usado |
+|---|---|---|
+| `usuario_id = ? AND data >= ? AND data <= ?` | `listar_lancamentos()` | usuário e intervalo de datas |
+| `usuario_id = ? AND data BETWEEN ? AND ?` | `somar_ano()` | usuário e intervalo de datas |
+| `usuario_id = ? AND data LIKE '2026-05%'` | `somar_mes()` | só o usuário |
+| `data >= ?`, sem usuário | nenhum | não usa; lê a tabela inteira |
+
+As consultas com `LIKE` só aproveitam a primeira coluna: o `LIKE` do SQLite ignora
+maiúsculas e minúsculas por padrão e, por isso, não usa este índice para o intervalo
+de datas. O banco lê então todos os lançamentos daquele usuário, mas não os das
+outras contas.

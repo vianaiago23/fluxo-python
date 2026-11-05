@@ -765,6 +765,44 @@ checar("meta em categoria de entrada: avisa o motivo", "Escolha a categoria" in 
 
 
 # ======================================================================
+# ITEM 31 (parte da tela) — o painel mostra o aviso da meta
+# ======================================================================
+import re                                     # noqa: E402
+
+cli_tela, id_tela = conta_limpa("meta_tela@a.com")
+dia_tela = constantes.hoje().isoformat()
+with app.test_request_context():
+    cat_tela = banco.listar_categorias(id_tela, "despesa")[0]["id"]
+
+
+def cor_da_barra():
+    """Cor da barra da meta no painel: --income (verde), --gold (amarelo) ou --danger (vermelho)."""
+    corpo = cli_tela.get("/").get_data(as_text=True)
+    achado = re.search(r'bar-fill"[^>]*?background:\s*var\((--[a-z]+)\)', corpo, re.DOTALL)
+    return achado.group(1) if achado else None
+
+
+def gastar_na_tela(valor):
+    cli_tela.post("/lancamento/novo", data={"categoria_id": cat_tela, "valor": valor, "data": dia_tela,
+                                            "descricao": "gasto", "repetir": "1"})
+
+
+cli_tela.post("/meta/nova", data={"categoria_id": cat_tela, "valor_limite": "1.000,00"})
+checar("painel: meta sem gasto fica verde", cor_da_barra() == "--income")
+gastar_na_tela("799,00")
+checar("painel: 79,9% do limite ainda e verde", cor_da_barra() == "--income")
+gastar_na_tela("1,00")
+checar("painel: 80% do limite vira aviso amarelo", cor_da_barra() == "--gold")
+gastar_na_tela("199,00")
+checar("painel: 99,9% do limite continua amarelo", cor_da_barra() == "--gold")
+gastar_na_tela("1,00")
+# HOJE: com o gasto IGUAL ao limite a barra ainda e amarela; so fica vermelha ao ultrapassar.
+# Se o grupo quiser vermelho ja nos 100%, mude no painel.html (pct > 100 vira pct >= 100)
+# e troque o esperado abaixo para "--danger".
+checar("painel: 100% do limite ainda e amarelo (vermelho so acima)", cor_da_barra() == "--gold")
+gastar_na_tela("0,01")
+checar("painel: acima do limite fica vermelho", cor_da_barra() == "--danger")
+# ======================================================================
 # ITEM 32 — isolamento entre contas em TODA ação com número
 # ======================================================================
 cli_a, id_a = conta_limpa("isola_a@a.com")

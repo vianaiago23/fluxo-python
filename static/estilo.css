@@ -281,6 +281,8 @@ label,.rotulo{font-size:11px;color:var(--text-muted);text-transform:uppercase;le
 #tela-entrar .seg-toggle{display:flex;background:rgba(255,255,255,.05);border-radius:10px;padding:4px;margin:18px 0 16px;}
 #tela-entrar .seg-toggle a{flex:1;padding:9px;border-radius:8px;color:var(--text-muted);font-weight:700;font-size:13px;}
 #tela-entrar .seg-toggle a.active{background:rgba(255,255,255,.13);color:var(--text);}
+/* No verde claro do login o texto branco fica em 3,2:1; o quase preto passa de 6:1. */
+#tela-entrar .btn-primary{color:#0A0A0A;}
 @media (max-width:760px){
   .login-bg{--size:100px;--radius:58vw;}
 }

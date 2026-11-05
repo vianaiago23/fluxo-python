@@ -61,6 +61,9 @@ A escolha acontece na função `abrir_conexao()`: se a variável de ambiente
 o arquivo local. As duas bibliotecas seguem a mesma interface (DB-API 2.0), então
 nenhuma consulta muda. O `fluxo.db` é de cada máquina e não entra no repositório.
 
+Nem tudo fica no banco: a escolha entre modo escuro e claro é guardada em um cookie,
+porque vale para o navegador, não para os dados financeiros da conta.
+
 ### Como ler as tabelas
 
 - **Aceita vazio?** indica se a coluna aceita `NULL`, ou seja, ficar sem valor.
@@ -139,8 +142,8 @@ categoria de mais ninguém. Por isso as funções do `banco.py` sempre filtram p
 ele: `WHERE id = ? AND usuario_id = ?`.
 
 O `nome` não é `UNIQUE`: o banco deixa um usuário ter duas categorias com o mesmo
-nome, e até trocar de modelo pode gerar repetição, porque `aplicar_perfil()` mantém
-as categorias que já têm lançamentos.
+nome. Ao trocar de modelo, `aplicar_perfil()` mantém as categorias que já têm
+lançamentos e não cria outra com o mesmo tipo e nome.
 
 ## Tabela `lancamentos`
 

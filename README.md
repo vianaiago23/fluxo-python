@@ -1,7 +1,7 @@
 # Fluxo — controle financeiro
 
-Sistema web de controle financeiro para autônomos e pequenos negócios,
-feito em **Python**. O servidor monta as telas, guarda os dados, desenha
+Sistema web de controle financeiro pessoal, para pessoas físicas, autônomos e
+pequenos negócios, feito em **Python**. O servidor monta as telas, guarda os dados, desenha
 os gráficos e gera o relatório em PDF.
 
 ## Tecnologias
@@ -15,10 +15,11 @@ os gráficos e gera o relatório em PDF.
 | Gráficos | matplotlib |
 | Relatório em PDF | fpdf2 |
 | Senhas | Werkzeug (hash com salt) |
+| Aparência | CSS próprio, com modo escuro e claro, e fonte Inter (Google Fonts) |
 
-O projeto **não usa JavaScript**: toda a lógica — login, cálculos, regras,
-importação de extrato e geração dos gráficos e do PDF — roda em Python no
-servidor. O navegador recebe apenas HTML e CSS já prontos.
+Toda a lógica — login, cálculos, regras, importação de extrato e geração dos
+gráficos e do PDF — roda em Python no servidor. O navegador recebe HTML e CSS já
+prontos. O único JavaScript é o `confirm()` que pede confirmação antes de excluir.
 
 ## Como rodar
 
@@ -47,7 +48,9 @@ fluxo-python/
 ├── relatorio.py     montagem do relatório em PDF
 ├── constantes.py    cores, meses, modelos de categorias, data no fuso do Brasil
 ├── preparar_nuvem.py  cria e confere as tabelas no banco hospedado
-├── testar_fumaca.py   teste automatico do sistema inteiro
+├── testar_fumaca.py   teste automático do sistema inteiro
+├── dados_exemplo.py   preenche a conta de demonstração
+├── docs/            banco de dados, plano de negócios e imagens das telas
 ├── templates/       as telas em HTML (Jinja2)
 ├── static/          folha de estilo e ícones
 └── fluxo.db         banco de dados (criado ao rodar)
@@ -87,14 +90,16 @@ seguem a mesma interface (DB-API 2.0), então nenhuma consulta muda.
 - Painel mensal: entradas, despesas, saldo e comentário automático
 - Gráficos de rosca por categoria e evolução do saldo em 6 meses
 - Lançamentos com repetição por vários meses
-- Metas de gasto por categoria, com alerta ao passar de 80% e de 100%
+- Metas de gasto por categoria, com aviso em texto a partir de 80% e acima de 100%
 - Importação de extrato bancário em CSV e OFX, com tela de revisão
-- Relatório completo em PDF, separado por mês
+- Relatório anual, relatório completo em PDF e exportação dos lançamentos em CSV
+- Modelos de categorias para uso pessoal e para vários tipos de negócio
+- Modo escuro, padrão do sistema, e modo claro, em Configurações
 
 ## Telas
 
 As imagens abaixo usam só dados fictícios, da conta criada por
-`python dados_exemplo.py`.
+`python dados_exemplo.py`, no modo escuro.
 
 ### Login
 
@@ -126,12 +131,12 @@ As imagens abaixo usam só dados fictícios, da conta criada por
 
 ## Publicar na internet
 
-O sistema esta no ar em <https://fluxo-python.vercel.app>, rodando na Vercel
+O sistema está no ar em <https://fluxo-python.vercel.app>, rodando na Vercel
 com o banco hospedado no Turso.
 
-A Vercel reconhece o Flask sozinha: acha a variavel `app` dentro de `app.py`,
-instala o `requirements.txt` e manda todas as rotas para la. Nao existe
-arquivo de configuracao; o `.python-version` so fixa o Python 3.12.
+A Vercel reconhece o Flask sozinha: acha a variável `app` dentro de `app.py`,
+instala o `requirements.txt` e manda todas as rotas para lá. Não existe
+arquivo de configuração; o `.python-version` só fixa o Python 3.12.
 
 ### Como foi montado
 
@@ -141,16 +146,16 @@ npx vercel link --yes                                  # cria o projeto
 npx vercel integration add tursocloud/database --name fluxo
 ```
 
-A integracao do Turso com a Vercel cria o banco e cadastra sozinha as
-variaveis `TURSO_DATABASE_URL` e `TURSO_AUTH_TOKEN` no projeto, nos tres
-ambientes. Falta so a chave que assina o cookie de login:
+A integração do Turso com a Vercel cria o banco e cadastra sozinha as
+variáveis `TURSO_DATABASE_URL` e `TURSO_AUTH_TOKEN` no projeto, nos três
+ambientes. Falta só a chave que assina o cookie de login:
 
 ```bash
 python -c "import secrets; print(secrets.token_hex(32))" | npx vercel env add FLUXO_SEGREDO production
 ```
 
-Sem `FLUXO_SEGREDO` o sistema se recusa a subir, de proposito: sem uma chave
-fixa e secreta, qualquer pessoa poderia forjar a sessao de um usuario.
+Sem `FLUXO_SEGREDO` o sistema se recusa a subir, de propósito: sem uma chave
+fixa e secreta, qualquer pessoa poderia forjar a sessão de um usuário.
 
 Depois, uma vez, para criar as tabelas no banco da nuvem:
 
@@ -160,20 +165,20 @@ set -a; . ./.env.local; set +a
 python preparar_nuvem.py
 ```
 
-### Publicar uma nova versao
+### Publicar uma nova versão
 
 ```bash
 npx vercel deploy --prod
 ```
 
-> O arquivo `.env.local` guarda o token do banco e esta no `.gitignore`.
+> O arquivo `.env.local` guarda o token do banco e está no `.gitignore`.
 > Ele nunca deve ser enviado para o repositorio.
 
 ## Testes
 
 O arquivo `testar_fumaca.py` percorre o sistema inteiro num banco temporário
 — cadastro, login, lançamentos, edição, metas, gráficos, PDF, isolamento
-entre contas, recuperação e troca de senha e exclusão de conta:
+entre contas, recuperação e troca de senha, exclusão de conta, exportação e tema:
 
 ```bash
 python testar_fumaca.py

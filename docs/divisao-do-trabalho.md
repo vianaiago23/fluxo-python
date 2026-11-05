@@ -92,14 +92,14 @@ Arquivo: `testar_fumaca.py`. Siga o padrão que já está lá:
 
 Pasta `docs/`. A fonte para o banco é o esquema no começo do `banco.py`.
 
-35. Cria `docs/banco-de-dados.md`: estrutura do documento e visão geral das quatro tabelas
-36. Descreve `usuarios` e `categorias`: cada coluna, tipo e para que serve
-37. Descreve `lancamentos`: colunas, e por que guarda `usuario_id` e `tipo` mesmo dando para chegar neles pela categoria
-38. Descreve `metas`, o porquê do `UNIQUE` na categoria, e o índice `idx_lancamentos_usuario_data`
-39. Explica as chaves estrangeiras, o `ON DELETE CASCADE` e as restrições `CHECK`
-40. Cria `docs/plano-de-negocios.md`: problema, solução e público-alvo
-41. Plano de negócios: concorrentes, preço, custos e ponto de equilíbrio em tabela
-42. README: imagens das telas do sistema e revisão do texto
+35. Cria `docs/banco-de-dados.md`: estrutura do documento e visão geral das tabelas *(feito)*
+36. Descreve `usuarios` e `categorias`: cada coluna, tipo e para que serve *(feito)*
+37. Descreve `lancamentos`: colunas, e por que guarda `usuario_id` e `tipo` mesmo dando para chegar neles pela categoria *(feito)*
+38. Descreve `metas`, o porquê do `UNIQUE` na categoria, e o índice `idx_lancamentos_usuario_data` *(feito)*
+39. Explica as chaves estrangeiras, o `ON DELETE CASCADE` e as restrições `CHECK` *(feito)*
+40. Cria `docs/plano-de-negocios.md`: problema, solução e público-alvo *(feito)*
+41. Plano de negócios: concorrentes, preço, custos e ponto de equilíbrio em tabela *(feito)*
+42. README: imagens das telas do sistema e revisão do texto *(feito)*
 
 ## Pessoa 6 — Perfis de negócio e interface — 8 entregas
 

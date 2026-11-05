@@ -5,6 +5,36 @@ Projeto Integrador de Transição, 2026). Os números e as afirmações sobre o 
 foram conferidos em novembro de 2026, com o código do sistema e com fontes externas.
 O que mudou em relação ao PDF está em [Correções em relação ao PDF](#correções-em-relação-ao-pdf).
 
+## Ideia e proposta de valor
+
+O Fluxo é um sistema de controle financeiro pessoal, para pessoas físicas e
+autônomos, que elimina o trabalho de anotar gasto por gasto: importa o extrato do
+banco, acompanha metas por categoria e mostra para onde o dinheiro está indo.
+
+> Importe seu extrato, defina metas e veja para onde vai o seu dinheiro, sem esforço.
+
+## Filosofia do produto
+
+**Missão:** ajudar pessoas físicas e autônomos a entender para onde vai o seu
+dinheiro, prevenindo o endividamento com um controle financeiro simples, visual e
+automatizado.
+
+**Visão:** ser reconhecido como o sistema de controle financeiro mais simples de
+adotar no dia a dia, especialmente para quem tem renda variável e para quem nunca
+conseguiu manter uma planilha por muito tempo.
+
+**Valores:**
+
+- **Simplicidade:** menos digitação e mais clareza.
+- **Transparência financeira:** entender de forma visual e imediata para onde vai o dinheiro.
+- **Prevenção, não apenas registro:** metas e alertas ajudam a agir antes de se endividar.
+- **Design que não cansa:** feito para o uso diário.
+
+**Identidade visual:** modo escuro com contraste de verde sobre azul escuro e
+tipografia Inter. O verde remete a dinheiro, e o azul escuro dá um visual sóbrio e
+moderno, longe da estética de planilha. Quem preferir pode trocar para o modo claro
+em Configurações.
+
 ## Problema
 
 Quem trabalha por conta própria nem sempre sabe quanto sobrou no fim do mês. A renda
@@ -35,10 +65,6 @@ financeiro. Ela ainda não foi medida com usuários e deve ser testada.
 
 ## Solução
 
-O Fluxo é um sistema web de controle financeiro para autônomos e pequenos negócios.
-A proposta do grupo se resume em uma frase: **importe seu extrato, defina metas e
-veja para onde vai o seu dinheiro**.
-
 O caminho fica entre o lançamento manual e a conexão bancária: a pessoa baixa o
 extrato no site do banco, envia o arquivo ao Fluxo e revisa os lançamentos antes de
 gravar. Assim, digita menos, não precisa conectar a conta do banco e continua no
@@ -53,19 +79,28 @@ Todos estes recursos estão no código deste repositório:
 | Importação de extrato em CSV e OFX, com tela de revisão | reduz a digitação |
 | Painel mensal com entradas, despesas, saldo e comentário automático | mostra o resultado do mês em uma tela |
 | Gráficos por categoria e evolução do saldo em 6 meses | mostra para onde o dinheiro foi |
-| Metas por categoria, com aviso a partir de 80% e acima de 100% do limite | avisa antes e depois de estourar o limite |
-| Modelos de categorias por tipo de negócio | a conta já começa com categorias adequadas |
+| Metas por categoria, com aviso em texto a partir de 80% e acima de 100% do limite | avisa antes e depois de estourar o limite |
+| Modelos de categorias para uso pessoal e por tipo de negócio | a conta já começa com categorias adequadas |
 | Lançamentos que se repetem por vários meses | evita digitar contas fixas de novo |
-| Relatório anual e relatório em PDF | facilita acompanhar o ano e enviar os números a alguém |
+| Relatório anual e exportação em PDF e CSV | facilita acompanhar o ano e enviar os números a alguém |
+| Modo escuro, padrão do sistema, e modo claro | identidade visual pensada para o uso diário |
 
-Os modelos prontos cobrem arquiteto, vendedor de carros, salão de beleza, oficina
+Os modelos prontos cobrem finanças pessoais (Moradia, Alimentação, Lazer, Transporte
+e outras), arquiteto, vendedor de carros, salão de beleza, oficina
 mecânica, professor particular e delivery ou lanchonete, além de um genérico.
 
 ### O que ainda não existe
 
-Para evitar prometer o que o produto não entrega, estes itens continuam como ideias
-para o futuro: conexão automática com bancos, aplicativo nas lojas de celular,
-notificações push, modo escuro, exportação em CSV e cobrança de assinatura.
+O PDF do grupo prevê estes itens, mas eles dependem de algo que o código sozinho não
+resolve. Para evitar prometer o que o produto não entrega, ficam como próximos passos:
+
+| Item | O que falta para existir |
+|---|---|
+| Sincronização bancária | contratar um provedor de Open Finance, com contrato e credenciais |
+| Notificação push após 3 dias sem uso | decidir por um canal de envio e agendar a tarefa no servidor; o push no navegador exigiria JavaScript, que o projeto evita |
+| Medição de usuários ativos por dia (DAU) | escolher uma ferramenta de análise e tratar a privacidade dos dados de uso |
+| Aplicativo nas lojas de celular | hoje o sistema funciona pelo navegador do celular |
+| Cobrança da assinatura | contratar o meio de pagamento e desenvolver a cobrança |
 
 ## Público-alvo
 
@@ -76,8 +111,8 @@ notificações push, modo escuro, exportação em CSV e cobrança de assinatura.
 | Secundário | Jovens que nunca mantiveram uma planilha | um jeito simples de começar, direto do navegador |
 
 O foco principal são os autônomos porque é onde o produto se diferencia mais: os
-modelos de categorias são feitos por ramo de atividade. Os outros dois segmentos,
-presentes no PDF, são atendidos pelos mesmos recursos, sem nada específico para eles.
+modelos de categorias são feitos por ramo de atividade. Os outros dois segmentos são
+atendidos pelo modelo de finanças pessoais, pelas metas e pelo visual em modo escuro.
 
 ## Mercado
 
@@ -116,21 +151,21 @@ os produtos não foram testados um a um, então a comparação precisa ser valid
 
 ## Modelo de receita e preço
 
-**Proposta: uma assinatura única de R$ 14,90 por mês, paga no cartão de crédito**,
-com 7 dias de teste grátis, como faz o [Organizze][organizze-planos]. O valor é uma
-**hipótese do plano**, ainda sem pesquisa com clientes.
+**Decisão: uma assinatura única de R$ 14,90 por mês, paga no cartão de crédito**,
+com 7 dias de teste grátis, como faz o [Organizze][organizze-planos]. O valor ainda
+não passou por pesquisa com clientes e deve ser revisto depois dos primeiros testes.
 
 | Produto | Custo por ano |
 |---|---|
 | Mobills Premium | R$ 99,90 |
-| **Fluxo (proposta)** | **R$ 178,80** |
+| **Fluxo** | **R$ 178,80** |
 | Organizze Manual, no plano anual | R$ 358,80 |
 | Organizze Conectado, no plano anual | R$ 478,80 |
 
 O preço fica entre os dois concorrentes pagos por assinatura. O principal risco é o
 Mobills, que custa menos e ainda oferece conexão bancária. Para justificar a
-diferença, o Fluxo precisa convencer pelo foco em negócios, o que deve ser validado
-com autônomos antes de definir o valor.
+diferença, o Fluxo precisa convencer pelo foco em autônomos, o que deve ser validado
+com esse público.
 
 A cobrança ainda não existe no sistema e teria de ser desenvolvida.
 
@@ -147,7 +182,7 @@ Valores em dólar convertidos pela [PTAX de venda de 04/11/2026][ptax], R$ 5,477
 | Domínio `.com.br` | R$ 3,33 | R$ 40 por ano | [Registro.br][registro] |
 | Envio de e-mail (Resend Free) | R$ 0,00 | até 3.000 por mês e 100 por dia | [Resend][resend] |
 | Contabilidade | R$ 169,00 | menor plano para serviços; varia com o faturamento | [Contabilizei][contabilizei] |
-| Marketing | R$ 300,00 | hipótese do plano | não se aplica |
+| Marketing | R$ 300,00 | orçamento decidido neste plano | não se aplica |
 | **Subtotal sem pró-labore** | **R$ 609,22** | | |
 | Pró-labore de uma pessoa | R$ 1.621,00 | um salário mínimo de 2026 | [Receita Federal][receita-mei] |
 | **Total com pró-labore** | **R$ 2.230,22** | | |
@@ -181,9 +216,9 @@ a referência para o negócio se sustentar, com uma pessoa recebendo um salário
 
 ## Projeção de receita
 
-As quantidades de assinantes abaixo são **hipóteses para testar o modelo, e não
-previsões**: o Fluxo ainda não tem clientes pagantes nem histórico de conversão. A
-conta usa o cenário com pró-labore.
+As quantidades de assinantes abaixo são **metas de trabalho, e não previsões**: o
+Fluxo ainda não tem clientes pagantes nem histórico de conversão. A conta usa o
+cenário com pró-labore.
 
 ### Cenários no 12º mês
 
@@ -210,17 +245,65 @@ R$ 300 por mês de marketing podem não bastar.
 Nessa trajetória, o resultado só fica positivo depois de 171 assinantes, e os meses
 anteriores precisam de dinheiro próprio. A projeção também não desconta cancelamentos.
 
+## Estratégia de marketing
+
+**O produto como marketing:**
+
+- **Importação em destaque:** o botão "Importar extrato", com a promessa de parar de
+  digitar gasto por gasto.
+- **Clareza visual:** vídeos mostrando os gráficos e a divisão de despesas por categoria.
+- **Exportar PDF:** atrativo para quem precisa enviar relatórios financeiros rapidamente.
+
+**Retenção:**
+
+- **Gráfico de evolução:** o quadro de evolução do saldo nos últimos 6 meses incentiva
+  a voltar para acompanhar o resultado.
+- **Alertas de meta:** aviso no painel quando uma categoria se aproxima do orçamento
+  ou passa dele.
+- **Lembrete de acesso:** aviso depois de 3 dias sem uso, com a mensagem de que os
+  dados estão desatualizados. Depende de um canal de envio, ainda não implementado.
+
+**Aquisição e métricas:**
+
+- **Anúncios (TikTok, Reels e Meta):** gravações de tela do sistema em uso real, com a
+  pessoa cumprindo a meta de gastos.
+- **Métrica principal, usuários ativos por dia (DAU):** indica se as pessoas voltam para
+  acompanhar as metas. A medição ainda precisa ser implementada.
+
+## Cronograma de execução
+
+Planejado para 7 semanas, de 17 de agosto a 30 de setembro de 2026, com uma parte do
+sistema funcionando ao fim de cada semana.
+
+| Semana | Período | O que será feito | Entrega |
+|---:|---|---|---|
+| 1 | 17 a 23/08 | Definição das telas, menu de navegação, cores e identidade visual | Estrutura navegável |
+| 2 | 24 a 30/08 | Painel com saldo do mês e gráficos de entradas e despesas por categoria | Painel funcionando |
+| 3 | 31/08 a 06/09 | Cadastro de entradas e saídas, categorias e navegação entre os meses | Registro completo |
+| 4 | 07 a 13/09 | Cadastro de usuário e salvamento dos dados na nuvem | Dados salvos por usuário |
+| 5 | 14 a 20/09 | Importação de extrato, metas de gasto e relatório em PDF | Versão completa |
+| 6 | 21 a 27/09 | Uso com pessoas reais, correção de erros e ajustes para celular | Versão estável |
+| 7 | 28 a 30/09 | Revisão final, publicação na internet e apresentação | Sistema no ar |
+
+## Considerações finais
+
+O Fluxo se posiciona como uma alternativa simples frente a concorrentes consolidados,
+unindo importação de extrato, metas de gasto e uma identidade visual própria. O
+principal desafio é provar, com usuários reais, que o foco em autônomos justifica a
+assinatura diante de opções mais baratas e com conexão bancária.
+
 ## Correções em relação ao PDF
+
+Este plano segue o PDF, com exceção do que a conferência mostrou estar desatualizado:
 
 | O PDF diz | O que foi conferido | Decisão |
 |---|---|---|
 | "GuiaBolso (Olivia)" é um concorrente atual | São dois aplicativos diferentes, e ambos foram encerrados em 2022: o Guiabolso foi comprado pelo PicPay, e a Olivia, pelo Nubank ([Finsiders][finsiders]) | fora da lista de concorrentes |
-| Modo escuro é parte da identidade do produto | Só a tela de login é escura; as telas internas têm fundo claro e não há opção de modo escuro | listado como "ainda não existe" |
-| O perfil inclui sincronização bancária | O sistema não se conecta a bancos | listado como "ainda não existe" |
-| Exportação em CSV e PDF | O sistema só exporta em PDF; o CSV serve apenas para importar | listado como "ainda não existe" |
-| Notificação push após 3 dias sem uso | Não existe no sistema | listado como "ainda não existe" |
+| Organizze tem lançamento majoritariamente manual | O [site][organizze-home] anuncia conexão bancária a partir do plano Conectado | tabela de concorrentes atualizada |
+| Minhas Economias é 100% gratuito e de registro manual | O [site][minhas-economias] anuncia conexão por Open Finance | tabela de concorrentes atualizada |
+| O perfil inclui sincronização bancária | Exige contratar um provedor de Open Finance | listado como próximo passo |
+| Notificação push após 3 dias sem uso | Exige um canal de envio e uma tarefa agendada | listado como próximo passo |
 | "Importação em 1 clique" | A importação envia um arquivo e passa por uma tela de revisão | texto ajustado |
-| Aplicativo de controle financeiro **pessoal** | O sistema e o `README.md` são voltados a autônomos e pequenos negócios | foco principal ajustado |
 
 [ibge]: https://biblioteca.ibge.gov.br/visualizacao/periodicos/3086/pnacm_2026_ago.pdf
 [serasa]: https://www.tribunadosertao.com.br/geral/2026/11/02/1011781-serasa-aponta-842-milhoes-de-inadimplentes-no-brasil

@@ -6,7 +6,7 @@ Rode uma vez, antes de publicar, com as credenciais no ambiente:
     export TURSO_AUTH_TOKEN="..."
     python preparar_nuvem.py
 
-O script cria as quatro tabelas (se ainda nao existirem), confere se a
+O script cria as tabelas (se ainda nao existirem), confere se a
 estrutura ficou igual a do banco local e grava e apaga um registro de teste
 para provar que o sistema consegue ler e escrever na nuvem.
 """

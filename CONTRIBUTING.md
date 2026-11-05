@@ -109,18 +109,18 @@ Arquivo: `testar_fumaca.py`. Hoje ele não cobre duas partes importantes:
 
 Siga o padrão que já está no arquivo: uma função `checar("o que espero", condição)`.
 
-### C. Documentação do banco de dados no repositório
+### C. Documentação do banco de dados no repositório *(feito: `docs/banco-de-dados.md`)*
 Criar `docs/banco-de-dados.md` descrevendo as quatro tabelas (`usuarios`,
 `categorias`, `lancamentos`, `metas`): para que serve cada uma, cada coluna,
 as chaves estrangeiras e por que existem as restrições (`CHECK`, `UNIQUE`). O
 esquema está no começo do `banco.py`, e já existe um relatório em PDF que pode
 servir de base.
 
-### D. Plano de negócios no repositório
+### D. Plano de negócios no repositório *(feito: `docs/plano-de-negocios.md`)*
 Criar `docs/plano-de-negocios.md`. Existe hoje só em PDF; passar para texto no
 repositório, com os números em tabela.
 
-### E. Mais perfis de categorias
+### E. Mais perfis de categorias *(feito: `PERFIS`, em `constantes.py`)*
 Arquivo: `constantes.py`, dicionário `PERFIS`. Hoje tem três (arquiteto,
 vendedor de carros, genérico). Acrescentar outros — salão de beleza, oficina,
 professor particular, delivery — com categorias de entrada e de despesa que

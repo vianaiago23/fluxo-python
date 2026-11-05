@@ -196,8 +196,16 @@ label,.rotulo{font-size:11px;color:var(--text-muted);text-transform:uppercase;le
 .revisao-row .descricao{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .revisao-row .amt-in,.revisao-row .amt-out{text-align:right;}
 @media (max-width:760px){
-  .revisao-row{grid-template-columns:auto 1fr;}
-  .revisao-row .data,.revisao-row select{grid-column:2;}
+  /* Caixa, data e valor na primeira linha; descrição e categoria embaixo. */
+  .revisao-row{
+    grid-template-columns:auto minmax(0,1fr) auto;gap:6px 10px;
+    grid-template-areas:"marca data valor" ". desc desc" ". cat cat";
+  }
+  .revisao-row input[type=checkbox]{grid-area:marca;}
+  .revisao-row .data{grid-area:data;}
+  .revisao-row .amt-in,.revisao-row .amt-out{grid-area:valor;}
+  .revisao-row .descricao{grid-area:desc;}
+  .revisao-row select{grid-area:cat;}
 }
 
 /* ===== tela de login: fundo escuro com moedas =====

@@ -771,6 +771,21 @@ def baixar_relatorio():
     )
 
 
+@app.get("/relatorio.csv")
+@exige_login
+def baixar_csv():
+    lancamentos = [dict(l) for l in banco.listar_todos_lancamentos(session["usuario_id"])]
+    if not lancamentos:
+        flash("Ainda não há lançamentos para exportar. Cadastre o primeiro "
+              "em + Novo lançamento.", "erro")
+        return redirect(url_for("painel"))
+
+    return Response(
+        relatorio.gerar_csv(lancamentos), mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": "attachment; filename=fluxo-lancamentos.csv"},
+    )
+
+
 if __name__ == "__main__":
     # No macOS a porta 5000 costuma estar ocupada pelo AirPlay, por isso 5001.
     porta = int(os.environ.get("PORT", 5001))

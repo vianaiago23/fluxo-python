@@ -1417,6 +1417,31 @@ corpo = corpo_de(cli_meta.get("/"))
 checar("meta estourada: diz quanto passou", "Limite estourado" in corpo and "R$ 25,00" in corpo)
 
 
+# --- exportação em CSV
+print("\n--- exportacao em CSV")
+cli_csv, id_csv = conta_limpa("csv@a.com")
+r = cli_csv.get("/relatorio.csv")
+checar("CSV sem lancamentos volta ao painel com aviso", r.status_code == 302)
+with app.test_request_context():
+    e_csv = banco.listar_categorias(id_csv, "entrada")[0]["id"]
+    d_csv = banco.listar_categorias(id_csv, "despesa")[0]["id"]
+    banco.criar_lancamento(id_csv, "entrada", e_csv, 1500.5, "2026-03-05", "Projeto; centro")
+    banco.criar_lancamento(id_csv, "despesa", d_csv, 200.0, "2026-03-06", "=HIPERLINK(1)")
+r = cli_csv.get("/relatorio.csv")
+texto_csv = r.get_data().decode("utf-8-sig")
+checar("CSV baixa como anexo", "attachment" in r.headers.get("Content-Disposition", ""))
+checar("CSV sai no padrao brasileiro", "05/03/2026" in texto_csv and "1500,50" in texto_csv)
+checar("CSV: despesa sai negativa", "-200,00" in texto_csv)
+checar("CSV: formula vira texto", "'=HIPERLINK(1)" in texto_csv)
+checar("CSV: anonimo nao baixa", "/entrar" in app.test_client().get("/relatorio.csv").headers.get("Location", ""))
+outro_csv, _ = conta_limpa("csv2@a.com")
+checar("CSV: outra conta nao ve os dados", outro_csv.get("/relatorio.csv").status_code == 302)
+de_volta = leitor.ler_extrato("fluxo.csv", r.get_data())
+checar("CSV exportado pode ser importado de volta",
+       [(m["data"], m["valor"], m["tipo"]) for m in de_volta]
+       == [("2026-03-05", 1500.5, "entrada"), ("2026-03-06", 200.0, "despesa")])
+
+
 print(f"\n{n - len(falhas)}/{n} verificacoes passaram")
 if falhas:
     print("FALHAS:", *falhas, sep="\n  - ")

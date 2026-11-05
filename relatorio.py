@@ -1,5 +1,7 @@
 """Geração do relatório financeiro em PDF (fpdf2)."""
 
+import csv
+import io
 from collections import defaultdict
 
 from fpdf import FPDF
@@ -88,6 +90,34 @@ def _caixas_resumo(pdf, largura, entradas, saidas, saldo):
         pdf.set_font("helvetica", "B", 12)
         pdf.set_text_color(*cor)
         pdf.cell(largura_caixa - 10, 7, valor)
+
+
+def _sem_formula(texto):
+    """O Excel executa célula que começa com =, +, - ou @. O apóstrofo a mantém como texto."""
+    texto = texto or ""
+    return f"'{texto}" if texto[:1] in ("=", "+", "-", "@", "\t", "\r") else texto
+
+
+def gerar_csv(lancamentos):
+    """Exporta os lançamentos no padrão brasileiro, com despesa em valor negativo.
+
+    Usa ";" e vírgula decimal para abrir direto no Excel, e o BOM para ele
+    reconhecer os acentos. O arquivo também pode ser importado de volta.
+    """
+    saida = io.StringIO(newline="")
+    escritor = csv.writer(saida, delimiter=";")
+    escritor.writerow(["Data", "Tipo", "Categoria", "Descrição", "Valor"])
+    for movimento in lancamentos:
+        ano, mes, dia = movimento["data"].split("-")
+        sinal = "" if movimento["tipo"] == "entrada" else "-"
+        escritor.writerow([
+            f"{dia}/{mes}/{ano}",
+            "Entrada" if movimento["tipo"] == "entrada" else "Despesa",
+            _sem_formula(movimento["categoria_nome"]),
+            _sem_formula(movimento["descricao"]),
+            f"{sinal}{movimento['valor']:.2f}".replace(".", ","),
+        ])
+    return ("\ufeff" + saida.getvalue()).encode("utf-8")
 
 
 def gerar_pdf(nome_negocio, lancamentos):

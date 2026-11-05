@@ -69,6 +69,7 @@
   <h3 class="section-title">Dados</h3>
   <div class="danger-zone">
     <a class="btn" href="{{ url_for('baixar_relatorio') }}">Exportar relatório em PDF</a>
+    <a class="btn" href="{{ url_for('baixar_csv') }}">Exportar lançamentos em CSV</a>
     <form method="post" class="inline"
           onsubmit="return confirm('Isso apaga TODOS os seus lançamentos, categorias e metas. Não dá para desfazer. Tem certeza?')">
       <input type="hidden" name="acao" value="apagar_dados">

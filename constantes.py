@@ -76,6 +76,14 @@ PERFIS = {
                     "Plataformas e Aplicativos", "Marketing", "Impostos",
                     "Outros"],
     },
+    "delivery": {
+        "rotulo": "Delivery / Lanchonete",
+        "entrada": ["Vendas no Balcão", "Pedidos por Aplicativo",
+                    "Pedidos por WhatsApp", "Bebidas", "Outros"],
+        "despesa": ["Ingredientes", "Embalagens", "Taxa dos Aplicativos",
+                    "Entregadores", "Gás e Energia", "Aluguel", "Marketing",
+                    "Impostos", "Outros"],
+    },
     "generico": {
         "rotulo": "Genérico / Outro negócio",
         "entrada": ["Vendas", "Serviços", "Outros"],

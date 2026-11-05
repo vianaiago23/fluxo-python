@@ -233,6 +233,14 @@ def pagina_nao_encontrada(_erro):
     ), 404
 
 
+@app.errorhandler(405)
+def metodo_nao_permitido(_erro):
+    return render_template(
+        "erro.html", codigo=405, titulo="Esse endereço não abre desse jeito",
+        explicacao="Essa página só funciona pelos botões do sistema, e não "
+                   "digitando o endereço. Volte ao início e tente por lá.",
+    ), 405
+
 @app.errorhandler(500)
 def erro_interno(_erro):
     # A mensagem técnica fica no registro do servidor, nunca na tela: ela

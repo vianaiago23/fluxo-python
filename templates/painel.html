@@ -3,9 +3,9 @@
 
 {% block navegacao %}
 <span class="month-nav">
-  <a href="{{ url_for('painel', ano=anterior[0], mes=anterior[1], **parametros) }}" title="Mês anterior">&lsaquo;</a>
+  <a href="{{ url_for('painel', ano=anterior[0], mes=anterior[1], **parametros) }}" title="Mês anterior" aria-label="Mês anterior">&lsaquo;</a>
   <span class="label">{{ MESES[mes - 1] }} {{ ano }}</span>
-  <a href="{{ url_for('painel', ano=seguinte[0], mes=seguinte[1], **parametros) }}" title="Próximo mês">&rsaquo;</a>
+  <a href="{{ url_for('painel', ano=seguinte[0], mes=seguinte[1], **parametros) }}" title="Próximo mês" aria-label="Próximo mês">&rsaquo;</a>
 </span>
 {% endblock %}
 
@@ -122,7 +122,7 @@
         <span class="nums">
           {{ formatar_reais(meta['gasto']) }} / {{ formatar_reais(meta['valor_limite']) }}
           <form method="post" action="{{ url_for('excluir_meta', meta_id=meta['id']) }}" class="inline">
-            <button class="goal-remove" type="submit" title="Remover meta">&times;</button>
+            <button class="goal-remove" type="submit" title="Remover meta" aria-label="Remover a meta de {{ meta['nome'] }}">&times;</button>
           </form>
         </span>
       </div>
@@ -204,10 +204,10 @@
         {{ '+' if movimento['tipo'] == 'entrada' else '−' }} {{ formatar_reais(movimento['valor']) }}
       </span>
       <span class="row-actions">
-        <a class="icon-btn" href="{{ url_for('editar_lancamento', lancamento_id=movimento['id']) }}" title="Editar">&#9998;</a>
+        <a class="icon-btn" href="{{ url_for('editar_lancamento', lancamento_id=movimento['id']) }}" title="Editar" aria-label="Editar lançamento de {{ movimento['categoria_nome'] }}">&#9998;</a>
         <form method="post" action="{{ url_for('excluir_lancamento', lancamento_id=movimento['id']) }}" class="inline"
               onsubmit="return confirm('Excluir este lançamento?')">
-          <button class="icon-btn" type="submit" title="Excluir">&#128465;</button>
+          <button class="icon-btn" type="submit" title="Excluir" aria-label="Excluir lançamento de {{ movimento['categoria_nome'] }}">&#128465;</button>
         </form>
       </span>
     </div>

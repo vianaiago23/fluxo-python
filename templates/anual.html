@@ -3,9 +3,9 @@
 
 {% block navegacao %}
 <span class="month-nav">
-  <a href="{{ url_for('relatorio_anual', ano=ano - 1) }}" title="Ano anterior">&lsaquo;</a>
+  <a href="{{ url_for('relatorio_anual', ano=ano - 1) }}" title="Ano anterior" aria-label="Ano anterior">&lsaquo;</a>
   <span class="label">{{ ano }}</span>
-  <a href="{{ url_for('relatorio_anual', ano=ano + 1) }}" title="Próximo ano">&rsaquo;</a>
+  <a href="{{ url_for('relatorio_anual', ano=ano + 1) }}" title="Próximo ano" aria-label="Próximo ano">&rsaquo;</a>
 </span>
 {% endblock %}
 

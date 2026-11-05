@@ -1,3 +1,4 @@
+
 """Teste de fumaça: percorre o sistema inteiro no banco local (SQLite em arquivo).
 
 Roda contra um banco temporário, nunca contra o fluxo.db do dia a dia.
@@ -107,7 +108,10 @@ c2 = app.test_client()
 c2.post("/entrar", data={"modo": "cadastro", "email": "b@b.com", "senha": "senha123"})
 c2.post("/perfil", data={"perfil": "generico"})
 corpo2 = c2.get("/").get_data(as_text=True)
-checar("conta nova nao ve dados da outra", "Projeto Y" not in corpo2 and "Aluguel" not in corpo2)
+# "Aluguel" também é nome de categoria da conta nova; o que não pode aparecer
+# é a descrição do lançamento da outra conta.
+checar("conta nova nao ve dados da outra",
+       "Projeto Y" not in corpo2 and '<span class="desc">Aluguel' not in corpo2)
 r = c2.post(f"/lancamento/{alvo['id']}/excluir")
 with app.test_request_context():
     lancs = banco.listar_todos_lancamentos(1)
@@ -592,11 +596,11 @@ for nome, conteudo in (("vazio.csv", b""), ("texto.csv", b"isto nao e um extrato
                        ("semvalor.csv", "Data;Descrição;Categoria\n14/09/2026;A;B\n".encode())):
     r = tentar(lambda: enviar_extrato(cli_imp, nome, conteudo))
     checar(f"importar {nome}: avisa que nao leu nada",
-           sem_estouro(r) and "Não foi possível ler" in r.get_data(as_text=True))
+           sem_estouro(r) and "Nenhum lançamento foi encontrado" in r.get_data(as_text=True))
     checar(f"importar {nome}: nao grava nada", total_lancamentos(id_imp) == 0)
 
 r = tentar(lambda: cli_imp.post("/importar", data={}, follow_redirects=True))
-checar("importar sem escolher arquivo: avisa", sem_estouro(r) and "Escolha um arquivo" in r.get_data(as_text=True))
+checar("importar sem escolher arquivo: avisa", sem_estouro(r) and "Nenhum arquivo foi escolhido" in r.get_data(as_text=True))
 
 csv_misto = "Data;Descrição;Valor\n14/09/2026;Boa;-10,00\n15/09/2026;Ruim;abc\n".encode()
 r = tentar(lambda: enviar_extrato(cli_imp, "misto.csv", csv_misto))
@@ -623,13 +627,24 @@ casos = {
     "valor negativo": [("10.00", "2026-09-14"), ("-5", "2026-09-15")],
     "valor zero": [("10.00", "2026-09-14"), ("0", "2026-09-15")],
     "data vazia": [("10.00", "2026-09-14"), ("5.00", "")],
+    "valor nan": [("10.00", "2026-09-14"), ("nan", "2026-09-15")],
+    "valor infinito": [("10.00", "2026-09-14"), ("inf", "2026-09-15")],
+    "data que nao existe": [("10.00", "2026-09-14"), ("5.00", "2026-02-31")],
 }
 for nome, linhas in casos.items():
     antes = total_lancamentos(id_imp)
     r = confirmar(cli_imp, linhas)
     depois = total_lancamentos(id_imp)
     checar(f"confirmar com {nome}: nao estoura erro", sem_estouro(r))
-    checar(f"confirmar com {nome}: nao grava lancamento pela metade", depois == antes)
+    # Regra do grupo: a linha ruim fica de fora, a boa entra, e a tela avisa.
+    checar(f"confirmar com {nome}: so a linha boa entra", depois == antes + 1)
+    checar(f"confirmar com {nome}: avisa que uma ficou de fora",
+           sem_estouro(r) and "de fora" in r.get_data(as_text=True))
+
+with app.test_request_context():
+    gravados_imp = banco.listar_todos_lancamentos(id_imp)
+checar("nenhuma linha invalida chegou ao banco",
+       all(l["valor"] > 0 and len(l["data"]) == 10 for l in gravados_imp))
 
 antes = total_lancamentos(id_imp)
 r = confirmar(cli_imp, [("10.00", "2026-09-14"), ("5.00", "2026-09-15")])
@@ -655,9 +670,9 @@ checar("repetir 3: cria 3 lancamentos", len(datas_de(id_rep, "rep3")) == 3)
 checar("repetir 3: um em cada mes seguinte, no mesmo dia",
        datas_de(id_rep, "rep3") == ["2026-03-15", "2026-04-15", "2026-05-15"])
 
-lancar(cli_rep, "2026-11-15", "3", "virada")
+lancar(cli_rep, "2025-11-15", "3", "virada")
 checar("repetir atravessa a virada do ano",
-       datas_de(id_rep, "virada") == ["2026-11-15", "2026-12-15", "2027-01-15"])
+       datas_de(id_rep, "virada") == ["2025-11-15", "2025-12-15", "2026-01-15"])
 
 lancar(cli_rep, "2026-06-10", "1", "rep1")
 checar("repetir 1: cria so 1 lancamento", len(datas_de(id_rep, "rep1")) == 1)
@@ -686,9 +701,9 @@ checar("repetir: todos com o mesmo valor, tipo e categoria",
 lancar(cli_rep, "2026-01-31", "4", "dia31")
 checar("dia 31: fevereiro cai no ultimo dia do mes (28)",
        datas_de(id_rep, "dia31") == ["2026-01-31", "2026-02-28", "2026-03-31", "2026-04-30"])
-lancar(cli_rep, "2028-01-31", "2", "bissexto")
+lancar(cli_rep, "2024-01-31", "2", "bissexto")
 checar("dia 31: em ano bissexto fevereiro cai no dia 29",
-       datas_de(id_rep, "bissexto") == ["2028-01-31", "2028-02-29"])
+       datas_de(id_rep, "bissexto") == ["2024-01-31", "2024-02-29"])
 lancar(cli_rep, "2026-01-30", "2", "dia30")
 checar("dia 30: fevereiro tambem cai no ultimo dia", datas_de(id_rep, "dia30") == ["2026-01-30", "2026-02-28"])
 
@@ -701,6 +716,18 @@ for nome, repetir, data in (("repetir que nao e numero", "abc", "2026-05-01"),
     r = lancar(cli_rep, data, repetir, "estranho")
     checar(f"{nome}: nao estoura erro", sem_estouro(r))
 checar("entradas estranhas nao gravam lancamento", total_lancamentos(id_rep) == antes)
+
+# O Python entende datas como "20260914" e "2026-W37-1": o sistema precisa gravar AAAA-MM-DD
+for texto, esperado in (("20260914", "2026-09-14"), ("2026-W37-1", "2026-09-07")):
+    r = lancar(cli_rep, texto, "1", "formato " + texto)
+    checar(f"data no formato {texto}: nao estoura erro", sem_estouro(r))
+    checar(f"data no formato {texto}: grava como AAAA-MM-DD", datas_de(id_rep, "formato " + texto) == [esperado])
+
+for valor in ("nan", "inf"):
+    antes = total_lancamentos(id_rep)
+    r = lancar(cli_rep, "2026-05-01", "1", "valor " + valor, valor=valor)
+    checar(f"valor '{valor}' no formulario: nao estoura erro e nao grava",
+           sem_estouro(r) and total_lancamentos(id_rep) == antes)
 
 
 # ======================================================================
@@ -930,8 +957,265 @@ with app.test_request_context():
     sumiu = banco.buscar_categoria(id_a, desp_a[2]) is None
 checar("controle: o dono consegue excluir a propria categoria livre", sumiu)
 
+# --- filtros do painel: categoria e período
+c_filtro = app.test_client()
+c_filtro.post("/entrar", data={"modo": "cadastro", "email": "filtro@a.com", "senha": "senha123"})
+c_filtro.post("/perfil", data={"perfil": "arquiteto"})
+with app.test_request_context():
+    id_filtro = banco.buscar_usuario_por_email("filtro@a.com")["id"]
+    cat_entrada = banco.listar_categorias(id_filtro, "entrada")[0]["id"]
+    cat_despesa = banco.listar_categorias(id_filtro, "despesa")[0]["id"]
+for categoria, data_mov, descricao in ((cat_entrada, "2025-01-10", "Filtro-jan"),
+                                       (cat_despesa, "2025-02-15", "Filtro-fev"),
+                                       (cat_entrada, "2025-03-20", "Filtro-mar")):
+    c_filtro.post("/lancamento/novo", data={"categoria_id": categoria, "valor": "100,00",
+                                            "data": data_mov, "descricao": descricao, "repetir": "1"})
+
+
+def descricoes_no_painel(cliente, consulta):
+    corpo = cliente.get("/?todos=1&" + consulta).get_data(as_text=True)
+    return {d for d in ("Filtro-jan", "Filtro-fev", "Filtro-mar")
+            if f'<span class="desc">{d}' in corpo}
+
+
+checar("filtro por categoria mostra so ela",
+       descricoes_no_painel(c_filtro, f"de=2025-01-01&ate=2025-12-31&categoria={cat_entrada}")
+       == {"Filtro-jan", "Filtro-mar"})
+checar("filtro por categoria funciona junto com o mes",
+       descricoes_no_painel(c_filtro, f"ano=2025&mes=2&categoria={cat_entrada}") == set())
+checar("sem filtro, o mes mostra tudo dele",
+       descricoes_no_painel(c_filtro, "ano=2025&mes=2") == {"Filtro-fev"})
+checar("periodo recorta certo",
+       descricoes_no_painel(c_filtro, "de=2025-02-01&ate=2025-03-31") == {"Filtro-fev", "Filtro-mar"})
+checar("periodo inclui as duas pontas",
+       descricoes_no_painel(c_filtro, "de=2025-01-10&ate=2025-02-15") == {"Filtro-jan", "Filtro-fev"})
+checar("periodo substitui o filtro de mes",
+       descricoes_no_painel(c_filtro, "ano=2025&mes=1&de=2025-03-01&ate=2025-03-31") == {"Filtro-mar"})
+checar("periodo so com data inicial fica aberto no fim",
+       descricoes_no_painel(c_filtro, "de=2025-02-01") == {"Filtro-fev", "Filtro-mar"})
+checar("periodo e categoria juntos",
+       descricoes_no_painel(c_filtro, f"de=2025-02-01&ate=2025-12-31&categoria={cat_entrada}")
+       == {"Filtro-mar"})
+
+r = c_filtro.get("/?de=2025-12-31&ate=2025-01-01")
+checar("data inicial maior que a final nao quebra a tela",
+       r.status_code == 200 and "depois da final" in r.get_data(as_text=True)
+       and descricoes_no_painel(c_filtro, "de=2025-12-31&ate=2025-01-01") == set())
+checar("data invalida na URL nao quebra a tela",
+       c_filtro.get("/?de=2025-02-30&ate=lixo").status_code == 200)
+checar("categoria invalida na URL nao quebra a tela",
+       c_filtro.get("/?categoria=99999999999999999999999").status_code == 200)
+
+# outra conta trocando o número da categoria na URL
+c_intruso = app.test_client()
+c_intruso.post("/entrar", data={"modo": "cadastro", "email": "intruso@a.com", "senha": "senha123"})
+c_intruso.post("/perfil", data={"perfil": "arquiteto"})
+checar("categoria de outra conta na URL nao mostra nada",
+       descricoes_no_painel(c_intruso, f"de=2025-01-01&ate=2025-12-31&categoria={cat_entrada}") == set())
+with app.test_request_context():
+    id_intruso = banco.buscar_usuario_por_email("intruso@a.com")["id"]
+    checar("consulta com categoria alheia volta vazia",
+           banco.listar_lancamentos(id_intruso, categoria_id=cat_entrada) == [])
+
+# --- relatório anual
+import analise  # noqa: E402
+
+c_anual = app.test_client()
+c_anual.post("/entrar", data={"modo": "cadastro", "email": "anual@a.com", "senha": "senha123"})
+c_anual.post("/perfil", data={"perfil": "generico"})
+with app.test_request_context():
+    id_anual = banco.buscar_usuario_por_email("anual@a.com")["id"]
+    entrada_anual = banco.listar_categorias(id_anual, "entrada")[0]["id"]
+    despesa_anual = banco.listar_categorias(id_anual, "despesa")[0]["id"]
+for categoria, valor, data_mov in ((entrada_anual, "1.000,10", "2024-01-01"),
+                                   (entrada_anual, "1.500,25", "2024-01-31"),
+                                   (despesa_anual, "300,40", "2024-01-15"),
+                                   (despesa_anual, "999,99", "2024-06-10"),
+                                   (entrada_anual, "2.000,00", "2024-12-31"),
+                                   (entrada_anual, "7.777,00", "2023-12-31"),    # ano anterior
+                                   (despesa_anual, "8.888,00", "2025-01-01")):   # ano seguinte
+    c_anual.post("/lancamento/novo", data={"categoria_id": categoria, "valor": valor,
+                                           "data": data_mov, "descricao": "", "repetir": "1"})
+
+with app.test_request_context():
+    meses_vazios, total_vazio = analise.resumo_do_ano(id_anual, 2010)
+    meses_2024, total_2024 = analise.resumo_do_ano(id_anual, 2024)
+    meses_intruso, total_intruso = analise.resumo_do_ano(id_intruso, 2024)
+    do_ano = [l for l in banco.listar_todos_lancamentos(id_anual) if l["data"].startswith("2024")]
+    por_mes_somar_mes = [(banco.somar_mes(id_anual, 2024, m, "entrada"),
+                          banco.somar_mes(id_anual, 2024, m, "despesa")) for m in range(1, 13)]
+
+
+def zerado(meses, total):
+    return (len(meses) == 12 and [m["mes"] for m in meses] == list(range(1, 13))
+            and all(m["entradas"] == m["despesas"] == m["saldo"] == 0 for m in meses)
+            and total == {"entradas": 0, "despesas": 0, "saldo": 0})
+
+
+checar("ano sem lancamento devolve doze meses zerados", zerado(meses_vazios, total_vazio))
+checar("ano com lancamento tambem traz os doze meses", len(meses_2024) == 12)
+checar("mes sem lancamento aparece zerado",
+       meses_2024[2]["entradas"] == 0 and meses_2024[2]["despesas"] == 0)
+checar("cada mes bate com somar_mes",
+       [(round(m["entradas"], 2), round(m["despesas"], 2)) for m in meses_2024]
+       == [(round(e, 2), round(d, 2)) for e, d in por_mes_somar_mes])
+checar("total de entradas bate com a soma dos lancamentos",
+       total_2024["entradas"] == round(sum(l["valor"] for l in do_ano if l["tipo"] == "entrada"), 2)
+       == 4500.35)
+checar("total de despesas bate com a soma dos lancamentos",
+       total_2024["despesas"] == round(sum(l["valor"] for l in do_ano if l["tipo"] == "despesa"), 2)
+       == 1300.39)
+checar("saldo do ano e entradas menos despesas", total_2024["saldo"] == 3199.96)
+checar("primeiro e ultimo dia do ano entram, anos vizinhos nao",
+       meses_2024[0]["entradas"] == 2500.35 and meses_2024[11]["entradas"] == 2000.0)
+checar("um usuario nao ve o ano do outro", zerado(meses_intruso, total_intruso))
+
+r = c_anual.get("/anual?ano=2024")
+corpo = r.get_data(as_text=True)
+checar("tela do relatorio anual abre", r.status_code == 200)
+checar("tela mostra os doze meses", all(nome in corpo for nome in constantes.MESES))
+checar("tela mostra o total do ano", "4.500,35" in corpo and "3.199,96" in corpo)
+checar("tela do outro usuario nao mostra os valores",
+       "4.500,35" not in c_intruso.get("/anual?ano=2024").get_data(as_text=True))
+checar("ano invalido na URL nao quebra a tela", c_anual.get("/anual?ano=lixo").status_code == 200)
+for ano_grafico in ("2024", "2010"):
+    r = c_anual.get(f"/grafico/anual.png?ano={ano_grafico}")
+    checar(f"grafico anual de {ano_grafico} gera PNG", r.status_code == 200 and r.data[:4] == b"\x89PNG")
+
+# --- ordenação da lista de lançamentos
+with app.test_request_context():
+    def valores_em_ordem(ordem):
+        return [(l["data"], l["valor"]) for l in
+                banco.listar_lancamentos(id_anual, "2024-01-01", "2024-12-31", ordem=ordem)]
+
+    por_data_desc = valores_em_ordem("data_desc")
+    por_data_asc = valores_em_ordem("data_asc")
+    por_valor_desc = valores_em_ordem("valor_desc")
+    por_valor_asc = valores_em_ordem("valor_asc")
+    padrao = valores_em_ordem(banco.ORDENACAO_PADRAO)
+    tentativa_injecao = valores_em_ordem("l.valor; DROP TABLE lancamentos; --")
+    tabela_inteira = banco.conectar().execute(
+        "SELECT COUNT(*) AS n FROM lancamentos").fetchone()["n"] > 0
+
+checar("ordenacao por data, mais recente primeiro",
+       [d for d, _ in por_data_desc] == sorted((d for d, _ in por_data_desc), reverse=True))
+checar("ordenacao por data, mais antiga primeiro",
+       [d for d, _ in por_data_asc] == sorted(d for d, _ in por_data_asc))
+checar("ordenacao por valor, maior primeiro",
+       [v for _, v in por_valor_desc] == sorted((v for _, v in por_valor_desc), reverse=True))
+checar("ordenacao por valor, menor primeiro",
+       [v for _, v in por_valor_asc] == sorted(v for _, v in por_valor_asc))
+checar("ordenacao nao perde nem duplica lancamento",
+       sorted(por_valor_asc) == sorted(por_data_desc) and len(por_data_desc) == 5)
+checar("ordenacao desconhecida usa a padrao, sem ir para o SQL",
+       tentativa_injecao == padrao and tabela_inteira)
+
+corpo = c_anual.get("/?de=2024-01-01&ate=2024-12-31&todos=1&ordem=valor_desc").get_data(as_text=True)
+posicoes = [corpo.find(v) for v in ("2.000,00", "1.500,25", "1.000,10", "999,99", "300,40")]
+checar("painel ordena por valor pela URL", -1 not in posicoes and posicoes == sorted(posicoes))
+checar("painel marca a ordenacao escolhida", 'value="valor_desc" selected' in corpo)
+checar("links do painel mantem a ordenacao", "ordem=valor_desc" in corpo)
+r = c_anual.get("/?ordem=l.valor;%20DROP%20TABLE%20lancamentos;--")
+checar("ordenacao invalida na URL nao quebra a tela", r.status_code == 200)
+
+# --- validação de data e de valor no lançamento
+
+from datetime import timedelta  # noqa: E402
+
+with app.test_request_context():
+    antes_de_tudo = len(banco.listar_todos_lancamentos(1))
+
+amanha = (constantes.hoje() + timedelta(days=1)).isoformat()
+r = c.post("/lancamento/novo", data={"categoria_id": id_entrada, "valor": "100,00",
+                                     "data": amanha, "descricao": "futuro", "repetir": "1"})
+with app.test_request_context():
+    depois = banco.listar_todos_lancamentos(1)
+checar("data no futuro e recusada", len(depois) == antes_de_tudo)
+checar("data no futuro explica o motivo", "futuro" in r.get_data(as_text=True))
+
+r = c.post("/lancamento/novo", data={"categoria_id": id_entrada, "valor": "99.999.999,00",
+                                     "data": hoje, "descricao": "absurdo", "repetir": "1"})
+with app.test_request_context():
+    depois = banco.listar_todos_lancamentos(1)
+checar("valor acima do teto e recusado", len(depois) == antes_de_tudo)
+checar("valor acima do teto informa o limite", "limite" in r.get_data(as_text=True))
+
+r = c.post("/lancamento/novo", data={"categoria_id": id_entrada, "valor": "10,00",
+                                     "data": "31/02/2026", "descricao": "data torta", "repetir": "1"})
+with app.test_request_context():
+    depois = banco.listar_todos_lancamentos(1)
+checar("data mal formada nao derruba a tela", r.status_code == 200)
+checar("data mal formada nao grava nada", len(depois) == antes_de_tudo)
+
+r = c.post("/lancamento/novo", data={"categoria_id": id_entrada, "valor": "10,00",
+                                     "data": constantes.hoje().isoformat(),
+                                     "descricao": "hoje vale", "repetir": "1"})
+with app.test_request_context():
+    depois = banco.listar_todos_lancamentos(1)
+checar("lancamento de hoje continua sendo aceito", len(depois) == antes_de_tudo + 1)
+
+# --- etiquetas do eixo dos graficos
+
+from graficos import _rotulo_do_eixo  # noqa: E402
+
+checar("eixo nao mostra zero negativo", _rotulo_do_eixo(-0.0, None) == "0")
+checar("eixo nao mostra -0 ao arredondar", _rotulo_do_eixo(-0.4, None) == "0")
+checar("eixo mostra valor pequeno inteiro", _rotulo_do_eixo(300.0, None) == "300")
+checar("eixo mantem o sinal de valor negativo", _rotulo_do_eixo(-400.0, None) == "-400")
+checar("eixo encurta milhar", _rotulo_do_eixo(2500.0, None) == "2 mil")
+checar("eixo encurta milhar negativo", _rotulo_do_eixo(-2500.0, None) == "-2 mil")
+
+import graficos  # noqa: E402
+
+meses = ["Jun", "Jul", "Ago", "Set", "Out", "Nov"]
+vazio = graficos.barras_saldo(meses, [0, 0, 0, 0, 0, 0])
+cheio = graficos.barras_saldo(meses, [0, 0, 0, 0, 0, 5000])
+checar("grafico de saldo sem movimento gera PNG", vazio[:4] == b"\x89PNG")
+checar("grafico de saldo com movimento gera PNG", cheio[:4] == b"\x89PNG")
+checar("sem movimento o grafico vira aviso, nao eixo zerado", vazio != cheio)
+
+# --- a importacao recusa o mesmo que o formulario recusa
+
+def importar_uma(valor, data):
+    """Manda uma linha pela tela de revisao do extrato e devolve se gravou."""
+    with app.test_request_context():
+        antes = len(banco.listar_todos_lancamentos(1))
+    c.post("/importar/confirmar", data={
+        "incluir": "0", "categoria_0": id_entrada,
+        "valor_0": valor, "data_0": data, "descricao_0": "do extrato",
+    })
+    with app.test_request_context():
+        agora = banco.listar_todos_lancamentos(1)
+    return len(agora) > antes, agora
+
+amanha_iso = (constantes.hoje() + timedelta(days=1)).isoformat()
+gravou, _ = importar_uma("100.0", amanha_iso)
+checar("importacao recusa data no futuro", not gravou)
+
+gravou, _ = importar_uma("99999999.0", hoje)
+checar("importacao recusa valor acima do teto", not gravou)
+
+gravou, _ = importar_uma("abc", hoje)
+checar("importacao nao quebra com valor invalido", not gravou)
+
+gravou, _ = importar_uma("0", hoje)
+checar("importacao recusa valor zero", not gravou)
+
+gravou, lancs = importar_uma("7400.0", hoje)
+checar("importacao aceita linha valida", gravou)
+importado = [l for l in lancs if l["descricao"] == "do extrato"]
+checar("importacao grava o valor com ponto decimal, sem multiplicar",
+       len(importado) == 1 and abs(importado[0]["valor"] - 7400.0) < 0.01)
+
 print(f"\n{n - len(falhas)}/{n} verificacoes passaram")
 if falhas:
     print("FALHAS:", *falhas, sep="\n  - ")
     sys.exit(1)
 print("tudo certo")
+ 
+
+
+
+
+
+

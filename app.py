@@ -1,3 +1,4 @@
+
 """Fluxo — controle financeiro.
 
 Aplicação web feita em Python com Flask. O servidor monta as telas,
@@ -6,7 +7,7 @@ guarda os dados no SQLite, desenha os gráficos e gera o relatório em PDF.
 import hmac
 import math
 import os
-
+from datetime import date
 from functools import wraps
 
 from flask import (Flask, Response, flash, g, redirect, render_template,
@@ -17,7 +18,8 @@ import banco
 import extrato as leitor_extrato
 import graficos
 import relatorio
-from constantes import MESES, PALETA, PERFIS, formatar_reais, hoje
+from constantes import (MESES, PALETA, PERFIS, VALOR_MAXIMO,
+                        formatar_reais, hoje)
 
 # A Vercel define esta variável sozinha quando o sistema está publicado.
 NA_VERCEL = bool(os.environ.get("VERCEL"))
@@ -102,6 +104,63 @@ def mes_escolhido():
     return data_de_hoje.year, data_de_hoje.month
 
 
+def ano_escolhido():
+    """Lê ?ano= da URL; sem isso, ou fora de 1 a 9999, usa o ano corrente."""
+    try:
+        ano = int(request.args.get("ano", ""))
+    except ValueError:
+        return hoje().year
+    return ano if 1 <= ano <= 9999 else hoje().year
+
+
+def categoria_escolhida():
+    """Lê ?categoria= da URL. Devolve o número, ou None para não filtrar.
+
+    Não confere de quem é a categoria: a consulta já filtra pelo usuário,
+    então uma categoria de outra conta simplesmente não mostra nada.
+    """
+    try:
+        numero = int(request.args.get("categoria", ""))
+    except ValueError:
+        return None
+    # Fora dessa faixa o SQLite recusa o número e a tela quebraria.
+    return numero if 0 < numero < 2**63 else None
+
+
+def data_da_url(campo):
+    """Lê uma data AAAA-MM-DD da URL. Devolve o texto, ou None se não for data."""
+    bruto = request.args.get(campo, "")
+    try:
+        # O fromisoformat aceita outros formatos (20260131); o banco só entende este.
+        return bruto if len(bruto) == 10 and date.fromisoformat(bruto) else None
+    except ValueError:
+        return None
+
+
+def periodo_escolhido():
+    """Lê ?de= e ?ate= da URL. Devolve (inicio, fim); qualquer um pode ser None."""
+    return data_da_url("de"), data_da_url("ate")
+
+
+def ordem_escolhida():
+    """Lê ?ordem= da URL. Só aceita as chaves fixas do banco.ORDENACOES."""
+    ordem = request.args.get("ordem", "")
+    return ordem if ordem in banco.ORDENACOES else banco.ORDENACAO_PADRAO
+
+
+def data_eh_valida(texto):
+    """Converte AAAA-MM-DD em data. Devolve None se o texto nao for uma data.
+
+    O navegador manda sempre nesse formato, mas um envio forjado pode trazer
+    qualquer coisa — e, sem esta conferencia, o split mais abaixo quebraria
+    com erro 500.
+    """
+    try:
+        return date.fromisoformat(texto)
+    except (ValueError, TypeError):
+        return None
+
+
 def valor_do_formulario(campo):
     bruto = (request.form.get(campo) or "").replace(".", "").replace(",", ".")
     try:
@@ -110,21 +169,81 @@ def valor_do_formulario(campo):
         return 0.0
 
 
+def numero_do_formulario(campo):
+    """Le um numero que o proprio sistema escreveu no formulario.
+
+    Diferente de valor_do_formulario(), que le o que a pessoa digitou no
+    padrao brasileiro: aqui o separador decimal e o ponto, porque o valor foi
+    gerado pelo servidor na tela de revisao do extrato.
+    """
+    try:
+        return float(request.form.get(campo) or "")
+    except (TypeError, ValueError):
+        return None
+
+
+def inteiro_do_formulario(campo):
+    """Lê um número inteiro (como o id de uma categoria). Devolve None se faltar ou não for número."""
+    bruto = (request.form.get(campo) or "").strip()
+    return int(bruto) if bruto.isdecimal() else None
+
+
+def motivo_para_recusar(valor, data_texto):
+    """Devolve por que o lancamento nao pode ser gravado, ou None se pode.
+
+    As duas portas de entrada passam por aqui — o formulario e a importacao
+    de extrato. Antes a conferencia existia so no formulario, e pela
+    importacao entrava lancamento com data no futuro.
+    """
+    if valor is None or not math.isfinite(valor) or valor <= 0:
+        return "Informe um valor maior que zero, por exemplo 150,00."
+    if valor > VALOR_MAXIMO:
+        return (f"Valor alto demais. O limite por lançamento é "
+                f"{formatar_reais(VALOR_MAXIMO)} — confira se não sobrou "
+                f"algum zero a mais.")
+    if not data_texto:
+        return "Informe a data em que o lançamento aconteceu."
+    data = data_eh_valida(data_texto)
+    if data is None:
+        return "Data não reconhecida. Escolha o dia pelo calendário do campo Data."
+    if data > hoje():
+        return "A data não pode estar no futuro. Use a data de hoje ou uma anterior."
+    return None
+
+
 def problema_na_senha_nova(senha, confirmacao):
     """Devolve o que há de errado com a senha nova, ou None se está tudo certo."""
     if len(senha) < SENHA_MINIMA:
         return f"A senha precisa ter {SENHA_MINIMA} ou mais caracteres."
     if senha != confirmacao:
-        return "A confirmação não é igual à senha nova."
+        return "A confirmação não é igual à senha nova. Digite a mesma senha nos dois campos."
     return None
 
 
 # ------------------------------------------------------------------- acesso
 
-def numero_do_formulario(campo):
-    """Lê um número inteiro do formulário. Devolve None se faltar ou não for número."""
-    bruto = (request.form.get(campo) or "").strip()
-    return int(bruto) if bruto.isdecimal() else None
+# ------------------------------------------------------------ erros
+
+@app.errorhandler(404)
+def pagina_nao_encontrada(_erro):
+    return render_template(
+        "erro.html", codigo=404, titulo="Página não encontrada",
+        explicacao="O endereço que você abriu não existe. Se você digitou à "
+                   "mão, confira se não faltou alguma parte.",
+    ), 404
+
+
+@app.errorhandler(500)
+def erro_interno(_erro):
+    # A mensagem técnica fica no registro do servidor, nunca na tela: ela
+    # revela caminho de arquivo e estrutura do banco para quem está olhando.
+    app.logger.exception("erro interno")
+    return render_template(
+        "erro.html", codigo=500, titulo="Alguma coisa quebrou do nosso lado",
+        explicacao="O erro foi registrado e nós vamos olhar. Os seus dados "
+                   "não foram perdidos — tente de novo em alguns instantes.",
+    ), 500
+
 
 @app.route("/entrar", methods=["GET", "POST"])
 def entrar():
@@ -138,21 +257,23 @@ def entrar():
         senha = request.form.get("senha") or ""
 
         if not email or not senha:
-            flash("Preencha e-mail e senha.", "erro")
+            flash("Preencha o e-mail e a senha para continuar.", "erro")
         elif modo == "cadastro":
             if len(senha) < SENHA_MINIMA:
                 flash(f"A senha precisa ter {SENHA_MINIMA} ou mais caracteres.", "erro")
             else:
                 usuario_id = banco.criar_usuario(email, senha)
                 if usuario_id is None:
-                    flash("Já existe uma conta com esse e-mail.", "erro")
+                    flash("Já existe uma conta com esse e-mail. Entre com ela "
+                          "ou cadastre outro e-mail.", "erro")
                 else:
                     abrir_sessao(usuario_id)
                     return redirect(url_for("perfil"))
         else:
             usuario_id = banco.autenticar(email, senha)
             if usuario_id is None:
-                flash("E-mail ou senha incorretos.", "erro")
+                flash("E-mail ou senha incorretos. Confira o que foi digitado "
+                      "e tente de novo.", "erro")
             else:
                 abrir_sessao(usuario_id)
                 return redirect(url_for("painel"))
@@ -218,7 +339,8 @@ def perfil():
         if escolha in PERFIS:
             banco.aplicar_perfil(session["usuario_id"], escolha)
             return redirect(url_for("painel"))
-        flash("Escolha um dos modelos.", "erro")
+        flash("Escolha um dos modelos abaixo para continuar. As categorias "
+              "podem ser mudadas depois.", "erro")
     return render_template("perfil.html", perfis=PERFIS)
 
 
@@ -233,12 +355,40 @@ def painel():
 
     ano, mes = mes_escolhido()
     entradas, despesas, saldo = analise.resumo_do_mes(usuario_id, ano, mes)
-    lancamentos = banco.listar_lancamentos_do_mes(usuario_id, ano, mes)
+    categoria_id = categoria_escolhida()
+    inicio, fim = periodo_escolhido()
+    periodo_invertido = bool(inicio and fim and inicio > fim)
+    ordem = ordem_escolhida()
+
+    if periodo_invertido:
+        lancamentos = []
+    elif inicio or fim:
+        # Com data preenchida, o período substitui o mês na lista.
+        lancamentos = banco.listar_lancamentos(usuario_id, inicio, fim, categoria_id, ordem)
+    else:
+        lancamentos = banco.listar_lancamentos_do_mes(usuario_id, ano, mes, categoria_id, ordem)
     mostrar_todos = request.args.get("todos") == "1"
+
+    # Filtros ativos, para os links do painel não perderem a escolha.
+    filtros = {chave: valor for chave, valor in
+               (("categoria", categoria_id), ("de", inicio), ("ate", fim))
+               if valor is not None}
+    # Os links levam também a ordenação, que não é filtro: não esconde nada.
+    parametros = dict(filtros)
+    if ordem != banco.ORDENACAO_PADRAO:
+        parametros["ordem"] = ordem
 
     return render_template(
         "painel.html",
         ano=ano, mes=mes,
+        filtros=filtros,
+        parametros=parametros,
+        ordem=ordem,
+        categoria_id=categoria_id,
+        inicio=inicio, fim=fim,
+        periodo_invertido=periodo_invertido,
+        categorias_entrada=banco.listar_categorias(usuario_id, "entrada"),
+        categorias_despesa=banco.listar_categorias(usuario_id, "despesa"),
         anterior=analise.mes_anterior(ano, mes),
         seguinte=(ano + 1, 1) if mes == 12 else (ano, mes + 1),
         entradas=entradas, despesas=despesas, saldo=saldo,
@@ -249,7 +399,18 @@ def painel():
         total_lancamentos=len(lancamentos),
         mostrar_todos=mostrar_todos,
         insight=analise.montar_insight(usuario_id, ano, mes),
+        # Os mesmos números do gráfico de saldo, para o texto alternativo dele.
+        saldo_meses=list(zip(*analise.serie_saldo(usuario_id, ano, mes))),
     )
+
+
+@app.get("/anual")
+@exige_login
+def relatorio_anual():
+    """Os doze meses do ano em tabela, com o total no fim."""
+    ano = ano_escolhido()
+    meses, total = analise.resumo_do_ano(session["usuario_id"], ano)
+    return render_template("anual.html", ano=ano, meses=meses, total=total)
 
 
 # -------------------------------------------------------------- lançamentos
@@ -266,7 +427,7 @@ def editar_lancamento(lancamento_id=None):
     if request.method == "POST":
         categoria_id = request.form.get("categoria_id") or ""
         valor = valor_do_formulario("valor")
-        data_mov = leitor_extrato.converter_data(request.form.get("data"))
+        data_mov = request.form.get("data") or ""
         descricao = request.form.get("descricao") or ""
         try:
             repetir = int(request.form.get("repetir") or 1)
@@ -278,15 +439,18 @@ def editar_lancamento(lancamento_id=None):
                      if categoria_id.isdecimal() else None)
         tipo = categoria["tipo"] if categoria else "entrada"
 
-        if categoria is None:
-            flash("Escolha uma categoria.", "erro")
-        elif valor <= 0:
-            flash("Informe um valor maior que zero.", "erro")
-        elif data_mov is None:
-            flash("Escolha uma data válida.", "erro")
+        recusa = ("Escolha a categoria do lançamento. Se faltar alguma, crie "
+                  "em Configurações." if categoria is None
+                  else motivo_para_recusar(valor, data_mov))
+
+        if recusa:
+            flash(recusa, "erro")
         elif repetir is None:
             flash("Em \"repetir\", informe quantos meses seguidos como um número inteiro.", "erro")
         else:
+            # date.fromisoformat também aceita "20260914" e "2026-W37-1"; o resto do
+            # código espera AAAA-MM-DD, então a data é regravada nesse formato.
+            data_mov = data_eh_valida(data_mov).isoformat()
             if atual:
                 banco.atualizar_lancamento(usuario_id, lancamento_id, tipo,
                                            int(categoria_id), valor, data_mov, descricao)
@@ -334,10 +498,13 @@ def nova_meta():
         # só aceita categoria de despesa que pertença a quem está logado
         categoria = (banco.buscar_categoria(usuario_id, int(categoria_id))
                      if categoria_id.isdigit() else None)
-        if categoria and categoria["tipo"] == "despesa" and limite > 0:
+        if not categoria or categoria["tipo"] != "despesa":
+            flash("Escolha a categoria de despesa que a meta vai limitar.", "erro")
+        elif limite <= 0:
+            flash("Informe um limite mensal maior que zero, por exemplo 500,00.", "erro")
+        else:
             banco.salvar_meta(usuario_id, categoria["id"], limite)
             return redirect(url_for("painel"))
-        flash("Escolha a categoria e informe um valor válido.", "erro")
 
     return render_template("meta.html", categorias=categorias)
 
@@ -369,21 +536,21 @@ def configuracoes():
             if nome and tipo in ("entrada", "despesa"):
                 banco.criar_categoria(usuario_id, tipo, nome)
             else:
-                flash("Informe o nome da categoria.", "erro")
+                flash("Digite um nome para a categoria nova antes de adicionar.", "erro")
 
         elif acao == "renomear_categoria":
-            categoria_id = numero_do_formulario("categoria_id")
+            categoria_id = inteiro_do_formulario("categoria_id")
             if categoria_id is not None:
                 banco.renomear_categoria(usuario_id, categoria_id, request.form.get("nome", ""))
 
         elif acao == "cor_categoria":
-            categoria_id = numero_do_formulario("categoria_id")
+            categoria_id = inteiro_do_formulario("categoria_id")
             if categoria_id is not None:
                 banco.trocar_cor_categoria(usuario_id, categoria_id,
                                            request.form.get("cor", PALETA[0]))
 
         elif acao == "excluir_categoria":
-            categoria_id = numero_do_formulario("categoria_id")
+            categoria_id = inteiro_do_formulario("categoria_id")
             if categoria_id is not None and not banco.excluir_categoria(usuario_id, categoria_id):
                 flash("Essa categoria tem lançamentos e não pode ser excluída. "
                       "Edite ou remova os lançamentos primeiro.", "erro")
@@ -404,7 +571,8 @@ def configuracoes():
             problema = problema_na_senha_nova(senha_nova, request.form.get("confirmacao") or "")
             # Sem conferir a atual, quem achasse a sessão aberta tomaria a conta.
             if not banco.conferir_senha(usuario_id, request.form.get("senha_atual") or ""):
-                flash("A senha atual está incorreta.", "erro")
+                flash("A senha atual está incorreta. Digite a senha que você "
+                      "usa para entrar.", "erro")
             elif problema:
                 flash(problema, "erro")
             else:
@@ -419,7 +587,8 @@ def configuracoes():
                 session.clear()
                 flash("Sua conta foi excluída.", "ok")
                 return redirect(url_for("entrar"))
-            flash("Senha incorreta. A conta não foi excluída.", "erro")
+            flash("Senha incorreta. A conta não foi excluída — para excluir, "
+                  "digite a senha que você usa para entrar.", "erro")
 
         return redirect(url_for("configuracoes"))
 
@@ -439,12 +608,15 @@ def importar():
     if request.method == "POST":
         arquivo = request.files.get("extrato")
         if not arquivo or not arquivo.filename:
-            flash("Escolha um arquivo .csv ou .ofx.", "erro")
+            flash("Nenhum arquivo foi escolhido. Selecione o extrato em .csv "
+                  "ou .ofx baixado do site do seu banco.", "erro")
             return redirect(url_for("importar"))
 
         movimentos = leitor_extrato.ler_extrato(arquivo.filename, arquivo.read())
         if not movimentos:
-            flash("Não foi possível ler nenhum lançamento desse arquivo.", "erro")
+            flash("Nenhum lançamento foi encontrado nesse arquivo. Confira se "
+                  "é o extrato em .csv ou .ofx exportado pelo banco, com as "
+                  "colunas de data e de valor.", "erro")
             return redirect(url_for("importar"))
 
         usuario_id = session["usuario_id"]
@@ -463,11 +635,12 @@ def importar():
 def confirmar_importacao():
     """Grava só as linhas marcadas na tela de revisão.
 
-    Tudo ou nada: confere todas as linhas antes de gravar a primeira. Se uma
-    estiver com valor ou data inválidos, nada é gravado e a pessoa é avisada.
+    Cada linha passa pela mesma conferência do formulário: as que não passam
+    ficam de fora e a pessoa é avisada de quantas foram.
     """
     usuario_id = session["usuario_id"]
-    para_gravar = []
+    gravados = 0
+    recusados = 0
 
     for indice in request.form.getlist("incluir"):
         categoria_id = request.form.get(f"categoria_{indice}") or ""
@@ -477,27 +650,34 @@ def confirmar_importacao():
         if categoria is None:
             continue
 
-        try:
-            valor = float(request.form.get(f"valor_{indice}") or "")
-        except ValueError:
-            valor = 0.0
-        data_mov = leitor_extrato.converter_data(request.form.get(f"data_{indice}"))
-        if not math.isfinite(valor) or valor <= 0 or data_mov is None:
-            flash("Uma das linhas tem valor ou data inválidos. Nada foi importado: "
-                  "envie o arquivo de novo e confira as linhas.", "erro")
-            return redirect(url_for("importar"))
+        valor = numero_do_formulario(f"valor_{indice}")
+        data_mov = request.form.get(f"data_{indice}") or ""
+        if motivo_para_recusar(valor, data_mov):
+            recusados += 1
+            continue
 
-        para_gravar.append((categoria, valor, data_mov,
-                            request.form.get(f"descricao_{indice}") or ""))
+        banco.criar_lancamento(
+            usuario_id,
+            categoria["tipo"],
+            categoria["id"],
+            valor,
+            data_mov,
+            request.form.get(f"descricao_{indice}") or "",
+        )
+        gravados += 1
 
-    for categoria, valor, data_mov, descricao in para_gravar:
-        banco.criar_lancamento(usuario_id, categoria["tipo"], categoria["id"],
-                               valor, data_mov, descricao)
-
-    if para_gravar:
-        flash(f"{len(para_gravar)} lançamento(s) importado(s).", "ok")
+    regra = (f"A data não pode estar no futuro e o valor precisa ser maior que "
+             f"zero e de até {formatar_reais(VALOR_MAXIMO)}.")
+    if gravados and recusados:
+        flash(f"{gravados} lançamento(s) importado(s). {recusados} ficaram de "
+              f"fora: {regra} Lance esses à mão, se forem necessários.", "ok")
+    elif gravados:
+        flash(f"{gravados} lançamento(s) importado(s).", "ok")
+    elif recusados:
+        flash(f"Nenhum lançamento foi importado. {regra}", "erro")
     else:
-        flash("Nenhum lançamento foi importado.", "erro")
+        flash("Nenhum lançamento foi importado. Marque pelo menos uma linha "
+              "e escolha a categoria dela.", "erro")
     return redirect(url_for("painel"))
 
 
@@ -516,6 +696,11 @@ def grafico(tipo):
     elif tipo == "saldo":
         rotulos, valores = analise.serie_saldo(usuario_id, ano, mes)
         imagem = graficos.barras_saldo(rotulos, valores)
+    elif tipo == "anual":
+        meses, _ = analise.resumo_do_ano(usuario_id, ano_escolhido())
+        imagem = graficos.barras_ano([m["curto"] for m in meses],
+                                     [m["entradas"] for m in meses],
+                                     [m["despesas"] for m in meses])
     else:
         return "Gráfico desconhecido", 404
 
@@ -529,7 +714,8 @@ def baixar_relatorio():
     usuario_id = session["usuario_id"]
     lancamentos = [dict(l) for l in banco.listar_todos_lancamentos(usuario_id)]
     if not lancamentos:
-        flash("Nenhum lançamento para exportar ainda.", "erro")
+        flash("Ainda não há lançamentos para o relatório. Cadastre o primeiro "
+              "em + Novo lançamento.", "erro")
         return redirect(url_for("painel"))
 
     pdf = relatorio.gerar_pdf(g.usuario["nome_negocio"], lancamentos)
@@ -543,3 +729,10 @@ if __name__ == "__main__":
     # No macOS a porta 5000 costuma estar ocupada pelo AirPlay, por isso 5001.
     porta = int(os.environ.get("PORT", 5001))
     app.run(debug=True, port=porta)
+ 
+
+
+
+
+
+

@@ -7,21 +7,48 @@ que as rotas do Flask entregam como se fossem um arquivo.
 import io
 import os
 
-# A pasta pessoal do servidor na nuvem é somente leitura, e o matplotlib
-# precisa de algum lugar para guardar o cache de fontes.
-if os.environ.get("VERCEL"):
-    os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
+from constantes import CINZA, PRATA, VERDE, VERMELHO
 
-import matplotlib  # noqa: E402
+# O matplotlib é a biblioteca mais pesada do projeto: importá-lo custa alguns
+# segundos. Como a maioria das visitas nunca pede um gráfico — a tela de login
+# não tem nenhum — ele só é carregado quando o primeiro gráfico é desenhado.
+# Depois disso fica na memória, e as chamadas seguintes são imediatas.
+_plt = None
 
-matplotlib.use("Agg")  # sem interface gráfica: só gera o arquivo
 
-import matplotlib.pyplot as plt  # noqa: E402
+def _pyplot():
+    """Carrega o matplotlib na primeira vez que um gráfico é pedido."""
+    global _plt
+    if _plt is None:
+        # A pasta pessoal do servidor na nuvem é somente leitura, e o
+        # matplotlib precisa de algum lugar para o cache de fontes.
+        if os.environ.get("VERCEL"):
+            os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
 
-from constantes import CINZA, PRATA, VERDE, VERMELHO  # noqa: E402
+        import matplotlib
+
+        matplotlib.use("Agg")   # sem interface gráfica: só gera o arquivo
+
+        import matplotlib.pyplot
+
+        _plt = matplotlib.pyplot
+    return _plt
+
+
+def _rotulo_do_eixo(valor, _posicao):
+    """Formata o numero do eixo: 2500 vira "2 mil", 300 fica "300".
+
+    O arredondamento usa round(), que devolve inteiro. Com f"{valor:.0f}" o
+    zero negativo (-0.0, que aparece quando o grafico nao tem dado) virava a
+    etiqueta "-0" no eixo.
+    """
+    if abs(valor) >= 1000:
+        return f"{round(valor / 1000):d} mil"
+    return f"{round(valor):d}"
 
 
 def _para_png(figura):
+    plt = _pyplot()
     buffer = io.BytesIO()
     figura.savefig(buffer, format="png", dpi=160, transparent=True,
                    bbox_inches="tight", pad_inches=0.04)
@@ -32,6 +59,7 @@ def _para_png(figura):
 
 def rosca(fatias):
     """Gráfico de rosca. `fatias` é uma lista de (nome, valor, cor)."""
+    plt = _pyplot()
     fatias = [f for f in fatias if f[1] > 0]
     figura, eixo = plt.subplots(figsize=(2.6, 2.6))
 
@@ -51,7 +79,17 @@ def rosca(fatias):
 
 def barras_saldo(rotulos, valores):
     """Barras do saldo dos últimos meses: verde quando sobra, vermelho quando falta."""
+    plt = _pyplot()
     figura, eixo = plt.subplots(figsize=(9.4, 1.9))
+
+    if not any(valores):
+        # Sem nenhum movimento, o eixo se degenera e repete "0" em todas as
+        # marcas. Os outros graficos ja avisam nesse caso; este faz igual.
+        eixo.text(0.5, 0.5, "Sem lançamentos nestes meses", ha="center",
+                  va="center", fontsize=9, color=CINZA, transform=eixo.transAxes)
+        eixo.axis("off")
+        return _para_png(figura)
+
     cores = [VERDE if v >= 0 else VERMELHO for v in valores]
     eixo.bar(rotulos, valores, color=cores, width=0.55, zorder=3)
 
@@ -63,7 +101,42 @@ def barras_saldo(rotulos, valores):
         eixo.spines[lado].set_visible(False)
 
     eixo.tick_params(axis="both", length=0, labelsize=9, colors=CINZA)
-    eixo.yaxis.set_major_formatter(
-        lambda valor, _pos: f"{valor/1000:.0f} mil" if abs(valor) >= 1000 else f"{valor:.0f}"
-    )
+    eixo.yaxis.set_major_formatter(_rotulo_do_eixo)
+    return _para_png(figura)
+
+
+def barras_ano(rotulos, entradas, despesas):
+    """Entradas e despesas de cada mês lado a lado: verde e vermelho.
+
+    O eixo dos valores começa sempre em zero. Começando noutro ponto, uma
+    diferença pequena entre dois meses pareceria enorme.
+    """
+    plt = _pyplot()
+    figura, eixo = plt.subplots(figsize=(9.4, 2.6))
+
+    if not any(entradas) and not any(despesas):
+        eixo.text(0.5, 0.5, "Sem lançamentos neste ano", ha="center", va="center",
+                  fontsize=9, color=CINZA, transform=eixo.transAxes)
+        eixo.axis("off")
+        return _para_png(figura)
+
+    posicoes = range(len(rotulos))
+    largura = 0.38
+    eixo.bar([p - largura / 2 for p in posicoes], entradas, width=largura,
+             color=VERDE, label="Entradas", zorder=3)
+    eixo.bar([p + largura / 2 for p in posicoes], despesas, width=largura,
+             color=VERMELHO, label="Despesas", zorder=3)
+
+    eixo.set_xticks(list(posicoes), rotulos)
+    eixo.set_ylim(bottom=0)
+    eixo.grid(axis="y", color="#E6EBE8", linewidth=0.8, zorder=0)
+    eixo.set_axisbelow(True)
+
+    for lado in ("top", "right", "left", "bottom"):
+        eixo.spines[lado].set_visible(False)
+
+    eixo.tick_params(axis="both", length=0, labelsize=9, colors=CINZA)
+    eixo.yaxis.set_major_formatter(_rotulo_do_eixo)
+    eixo.legend(loc="upper left", bbox_to_anchor=(0, 1.18), ncol=2, frameon=False,
+                fontsize=8.5, labelcolor=CINZA, handlelength=1, handleheight=1)
     return _para_png(figura)

@@ -9,8 +9,8 @@
     </a>
     <nav class="topbar-actions">
       {% block navegacao %}{% endblock %}
-      <a class="icon-btn" href="{{ url_for('configuracoes') }}" title="Configurações">&#9881;</a>
-      <a class="icon-btn" href="{{ url_for('sair') }}" title="Sair">&#9099;</a>
+      <a class="icon-btn" href="{{ url_for('configuracoes') }}" title="Configurações" aria-label="Configurações">&#9881;</a>
+      <a class="icon-btn" href="{{ url_for('sair') }}" title="Sair" aria-label="Sair">&#9099;</a>
     </nav>
   </header>
 

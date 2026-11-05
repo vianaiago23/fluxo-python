@@ -14,6 +14,25 @@ def resumo_do_mes(usuario_id, ano, mes):
     return entradas, despesas, entradas - despesas
 
 
+def resumo_do_ano(usuario_id, ano):
+    """Os doze meses do ano, com entradas, despesas e saldo, e o total do ano.
+
+    Começa com os doze meses zerados e preenche com o que veio do banco:
+    montar só com o que voltou faria os meses vazios sumirem da tabela.
+    """
+    meses = [{"mes": numero, "nome": MESES[numero - 1], "curto": MESES_CURTOS[numero - 1],
+              "entradas": 0.0, "despesas": 0.0}
+             for numero in range(1, 13)]
+    for linha in banco.somar_ano(usuario_id, ano):
+        meses[linha["mes"] - 1].update(entradas=linha["entradas"], despesas=linha["despesas"])
+    for mes in meses:
+        mes["saldo"] = round(mes["entradas"] - mes["despesas"], 2)
+
+    total = {chave: round(sum(m[chave] for m in meses), 2)
+             for chave in ("entradas", "despesas", "saldo")}
+    return meses, total
+
+
 def serie_saldo(usuario_id, ano, mes, quantidade=6):
     """Saldo dos últimos meses, do mais antigo para o mais recente."""
     rotulos, valores = [], []

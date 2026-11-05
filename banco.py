@@ -372,15 +372,49 @@ def aplicar_perfil(usuario_id, chave_perfil):
 
 # --------------------------------------------------------------- lançamentos
 
-def listar_lancamentos_do_mes(usuario_id, ano, mes):
-    prefixo = f"{ano:04d}-{mes:02d}"
-    return conectar().execute(
-        "SELECT l.*, c.nome AS categoria_nome, c.cor AS categoria_cor "
-        "FROM lancamentos l JOIN categorias c ON c.id = l.categoria_id "
-        "WHERE l.usuario_id = ? AND l.data LIKE ? "
-        "ORDER BY l.data DESC, l.id DESC",
-        (usuario_id, prefixo + "%"),
-    ).fetchall()
+# Únicas ordenações aceitas. O ORDER BY não aceita parâmetro "?", então o
+# texto que vem da URL só escolhe uma chave daqui e nunca entra no SQL.
+ORDENACOES = {
+    "data_desc": "l.data DESC, l.id DESC",
+    "data_asc": "l.data ASC, l.id ASC",
+    "valor_desc": "l.valor DESC, l.data DESC, l.id DESC",
+    "valor_asc": "l.valor ASC, l.data DESC, l.id DESC",
+}
+ORDENACAO_PADRAO = "data_desc"
+
+
+def listar_lancamentos_do_mes(usuario_id, ano, mes, categoria_id=None,
+                              ordem=ORDENACAO_PADRAO):
+    """Lançamentos do mês. Com `categoria_id`, só os daquela categoria."""
+    # Dia 31 serve para qualquer mês: a comparação é de texto, não de data.
+    return listar_lancamentos(usuario_id, f"{ano:04d}-{mes:02d}-01",
+                              f"{ano:04d}-{mes:02d}-31", categoria_id, ordem)
+
+
+def listar_lancamentos(usuario_id, inicio=None, fim=None, categoria_id=None,
+                       ordem=ORDENACAO_PADRAO):
+    """Lançamentos entre duas datas, inclusive. None deixa o lado em aberto.
+
+    As datas são texto AAAA-MM-DD: nesse formato, comparar texto é o mesmo
+    que comparar datas. O filtro por usuario_id vale sempre: sem ele, trocar
+    o número da categoria na URL mostraria lançamentos de outra conta.
+    `ordem` é uma chave de ORDENACOES; qualquer outra coisa usa a padrão.
+    """
+    sql = ("SELECT l.*, c.nome AS categoria_nome, c.cor AS categoria_cor "
+           "FROM lancamentos l JOIN categorias c ON c.id = l.categoria_id "
+           "WHERE l.usuario_id = ?")
+    parametros = [usuario_id]
+    if inicio is not None:
+        sql += " AND l.data >= ?"
+        parametros.append(inicio)
+    if fim is not None:
+        sql += " AND l.data <= ?"
+        parametros.append(fim)
+    if categoria_id is not None:
+        sql += " AND l.categoria_id = ?"
+        parametros.append(categoria_id)
+    ordenacao = ORDENACOES.get(ordem, ORDENACOES[ORDENACAO_PADRAO])
+    return conectar().execute(sql + " ORDER BY " + ordenacao, parametros).fetchall()
 
 
 def listar_todos_lancamentos(usuario_id):
@@ -450,6 +484,24 @@ def somar_mes(usuario_id, ano, mes, tipo):
         (usuario_id, tipo, prefixo + "%"),
     ).fetchone()
     return linha["total"]
+
+
+def somar_ano(usuario_id, ano):
+    """Entradas e despesas de cada mês do ano, numa consulta só.
+
+    Devolve uma linha por mês que teve lançamento, com as colunas `mes`
+    (1 a 12), `entradas` e `despesas`. Mês sem lançamento não vem: quem
+    monta a tabela precisa completar com zero.
+    """
+    return conectar().execute(
+        "SELECT CAST(strftime('%m', data) AS INTEGER) AS mes, "
+        "SUM(CASE WHEN tipo = 'entrada' THEN valor ELSE 0 END) AS entradas, "
+        "SUM(CASE WHEN tipo = 'despesa' THEN valor ELSE 0 END) AS despesas "
+        "FROM lancamentos "
+        "WHERE usuario_id = ? AND data BETWEEN ? AND ? "
+        "GROUP BY mes ORDER BY mes",
+        (usuario_id, f"{ano:04d}-01-01", f"{ano:04d}-12-31"),
+    ).fetchall()
 
 
 # --------------------------------------------------------------------- metas

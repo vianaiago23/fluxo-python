@@ -26,7 +26,7 @@ git push
 | Perfis e interface | Pessoa 6 | 8 |
 
 **Ordem:** o Iago envia a base (itens 1 a 5) e, a partir daí, todas as frentes
-correm em paralelo. Três tarefas esperam alguém — estão marcadas com ⏳.
+correm em paralelo. Duas tarefas esperam alguém — estão marcadas com ⏳.
 
 ---
 
@@ -65,14 +65,14 @@ banco e no login. Comece lendo como a função `entrar()` funciona hoje.
 Arquivos: `app.py`, `banco.py`, `analise.py`, `templates/painel.html`.
 Lembre: consulta ao banco só no `banco.py`.
 
-19. Filtro de lançamentos por categoria no painel
-20. Filtro de lançamentos por período (data inicial e final)
-21. Teste automático dos dois filtros
-22. Relatório anual: a consulta no `banco.py` que soma mês a mês
-23. Relatório anual: a tela mostrando os doze meses
-24. Relatório anual: gráfico comparando os meses do ano
-25. Teste automático do relatório anual
-26. Ordenação da lista de lançamentos por data e por valor
+19. Filtro de lançamentos por categoria no painel *(feito)*
+20. Filtro de lançamentos por período (data inicial e final) *(feito)*
+21. Teste automático dos dois filtros *(feito)*
+22. Relatório anual: a consulta no `banco.py` que soma mês a mês *(feito)*
+23. Relatório anual: a tela mostrando os doze meses *(feito)*
+24. Relatório anual: gráfico comparando os meses do ano *(feito)*
+25. Teste automático do relatório anual *(feito)*
+26. Ordenação da lista de lançamentos por data e por valor *(feito)*
 
 ## Pessoa 4 — Testes — 8 entregas
 
@@ -106,14 +106,14 @@ Pasta `docs/`. A fonte para o banco é o esquema no começo do `banco.py`.
 Arquivos: `constantes.py` (dicionário `PERFIS`), `templates/`, `static/estilo.css`.
 É a frente mais acessível para quem está começando.
 
-43. Perfil "salão de beleza": categorias de entrada e de despesa
-44. Perfil "oficina mecânica"
-45. Perfil "professor particular"
-46. Perfil "delivery / lanchonete"
-47. Mensagens de erro mais claras — hoje algumas só dizem que deu errado
-48. `alt` em todas as imagens e foco visível ao navegar pelo teclado
-49. Contraste: conferir se todo texto é legível sobre o fundo
-50. ⏳ Layout no celular: painel e formulários *(encosta nos itens 19 e 20; combine com a Pessoa 3)*
+43. Perfil "salão de beleza": categorias de entrada e de despesa *(feito)*
+44. Perfil "oficina mecânica" *(feito)*
+45. Perfil "professor particular" *(feito)*
+46. Perfil "delivery / lanchonete" *(feito)*
+47. Mensagens de erro mais claras — hoje algumas só dizem que deu errado *(feito)*
+48. `alt` em todas as imagens e foco visível ao navegar pelo teclado *(feito)*
+49. Contraste: conferir se todo texto é legível sobre o fundo *(feito)*
+50. Layout no celular: painel e formulários *(feito)*
 
 ---
 

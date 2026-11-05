@@ -5,7 +5,7 @@
   --surface-3:#E4EAE6;
   --line:#DBE2DE;
   --text:#0F241A;
-  --text-muted:#69786F;
+  --text-muted:#5A6961;
   --income:#005227;
   --income-hover:#006933;
   --expense:#B23A1F;
@@ -45,7 +45,14 @@ button,.btn{cursor:pointer;border:none;border-radius:10px;font-family:inherit;}
 input,select{background:var(--surface-2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:9px 12px;font-size:14px;font-family:inherit;width:100%;}
 input[type=checkbox]{width:auto;accent-color:var(--income);}
 input:focus,select:focus{outline:2px solid var(--income);outline-offset:1px;}
-button:focus-visible,a:focus-visible{outline:2px solid var(--income);outline-offset:2px;}
+/* Foco pelo teclado: anel grosso com uma folga da cor do fundo, para continuar
+   visível sobre o botão verde, sobre as bolinhas de cor e no login escuro. */
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{
+  outline:3px solid var(--income);outline-offset:2px;box-shadow:0 0 0 2px var(--bg);
+}
+.icon-btn:focus-visible,.month-nav a:focus-visible{background:var(--surface-2);color:var(--text);}
+.preset-opt:focus-visible{background:var(--surface-3);border-color:var(--income);}
+.goal-remove:focus-visible{color:var(--danger);}
 label,.rotulo{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;font-weight:700;display:block;margin-bottom:6px;}
 .field{margin-bottom:14px;}
 .linha-campo{display:flex;gap:8px;}
@@ -106,7 +113,7 @@ label,.rotulo{font-size:11px;color:var(--text-muted);text-transform:uppercase;le
 .donut-wrap img{max-width:100%;max-height:100%;}
 .donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;}
 .donut-center .v{font-family:var(--font-mono);font-weight:800;font-size:14px;text-align:center;}
-.donut-center .l{font-size:9.5px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-top:2px;}
+.donut-center .l{font-size:10.5px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-top:2px;}
 .legend{margin-top:16px;display:flex;flex-direction:column;gap:9px;}
 .legend-row{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;gap:10px;}
 .legend-row .name{display:flex;align-items:center;gap:8px;}
@@ -116,7 +123,7 @@ label,.rotulo{font-size:11px;color:var(--text-muted);text-transform:uppercase;le
 .grafico-largo{display:block;width:100%;height:auto;max-height:230px;object-fit:contain;}
 
 /* metas */
-.goals-card .gh{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.goals-card .gh,.anual-card .gh{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
 .goal-row{margin-bottom:14px;}
 .goal-row:last-child{margin-bottom:0;}
 .goal-row .top{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px;align-items:center;gap:10px;}
@@ -137,9 +144,36 @@ label,.rotulo{font-size:11px;color:var(--text-muted);text-transform:uppercase;le
 .desc{display:block;font-size:12px;color:var(--text-muted);margin-top:2px;}
 .amt-in{color:var(--income);font-family:var(--font-mono);font-weight:700;font-size:13.5px;white-space:nowrap;}
 .amt-out{color:var(--expense);font-family:var(--font-mono);font-weight:700;font-size:13.5px;white-space:nowrap;}
+.filtros{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;padding:12px 0 14px;border-bottom:1px solid var(--line);margin-bottom:4px;}
+.filtros .filtro{flex:1 1 160px;min-width:0;}
+.filtros .filtro-data{flex:0 1 150px;}
+.filtros .filtro-acoes{display:flex;gap:6px;}
 .row-actions{display:flex;gap:2px;align-items:center;}
+@media (max-width:560px){
+  /* No celular as quatro colunas não cabem: os botões de editar e excluir
+     descem para baixo do valor, e a categoria ocupa as duas linhas. */
+  .ledger-row{grid-template-columns:40px minmax(0,1fr) auto;gap:2px 10px;}
+  .ledger-row .date,.ledger-row > :nth-child(2){grid-row:span 2;}
+  .ledger-row .row-actions{justify-self:end;}
+  /* Categoria e ordenação na linha inteira; só as duas datas dividem uma. */
+  .filtros .filtro{flex:1 1 100%;}
+  .filtros .filtro-data{flex:1 1 120px;}
+  .filtros .filtro-data input{padding-left:8px;padding-right:8px;}
+  .filtros .filtro-acoes{flex:1 1 100%;justify-content:flex-end;}
+}
 .empty{text-align:center;padding:30px 10px;color:var(--text-muted);font-size:13.5px;}
 .footnote{text-align:center;color:var(--text-muted);font-size:11.5px;margin-top:28px;}
+
+/* relatório anual */
+.tabela-anual-wrap{overflow-x:auto;margin-top:12px;}
+.tabela-anual{width:100%;border-collapse:collapse;font-size:13.5px;}
+.tabela-anual th,.tabela-anual td{padding:10px 8px;border-bottom:1px dashed var(--line);text-align:right;white-space:nowrap;}
+.tabela-anual th:first-child{text-align:left;}
+.tabela-anual thead th{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--line);}
+.tabela-anual tbody th a:hover{text-decoration:underline;}
+.tabela-anual tbody th{font-weight:600;}
+.tabela-anual .mes-vazio td,.tabela-anual .mes-vazio th{color:var(--text-muted);}
+.tabela-anual tfoot th,.tabela-anual tfoot td{font-weight:700;border-top:1px solid var(--line);border-bottom:none;}
 
 /* formulários */
 .form-card{max-width:520px;margin-left:auto;margin-right:auto;}
@@ -162,8 +196,16 @@ label,.rotulo{font-size:11px;color:var(--text-muted);text-transform:uppercase;le
 .revisao-row .descricao{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .revisao-row .amt-in,.revisao-row .amt-out{text-align:right;}
 @media (max-width:760px){
-  .revisao-row{grid-template-columns:auto 1fr;}
-  .revisao-row .data,.revisao-row select{grid-column:2;}
+  /* Caixa, data e valor na primeira linha; descrição e categoria embaixo. */
+  .revisao-row{
+    grid-template-columns:auto minmax(0,1fr) auto;gap:6px 10px;
+    grid-template-areas:"marca data valor" ". desc desc" ". cat cat";
+  }
+  .revisao-row input[type=checkbox]{grid-area:marca;}
+  .revisao-row .data{grid-area:data;}
+  .revisao-row .amt-in,.revisao-row .amt-out{grid-area:valor;}
+  .revisao-row .descricao{grid-area:desc;}
+  .revisao-row select{grid-area:cat;}
 }
 
 /* ===== tela de login: fundo escuro com moedas =====
@@ -259,6 +301,13 @@ label,.rotulo{font-size:11px;color:var(--text-muted);text-transform:uppercase;le
 #tela-entrar .seg-toggle{display:flex;background:rgba(255,255,255,.05);border-radius:10px;padding:4px;margin:18px 0 16px;}
 #tela-entrar .seg-toggle a{flex:1;padding:9px;border-radius:8px;color:var(--text-muted);font-weight:700;font-size:13px;}
 #tela-entrar .seg-toggle a.active{background:rgba(255,255,255,.13);color:var(--text);}
+/* No verde claro do login o texto branco fica em 3,2:1; o quase preto passa de 6:1. */
+#tela-entrar .btn-primary{color:#0A0A0A;}
 @media (max-width:760px){
   .login-bg{--size:100px;--radius:58vw;}
 }
+
+/* telas de erro (404 e 500) */
+.erro-codigo{margin:18px 0 2px;font-size:44px;line-height:1;font-weight:700;color:var(--income);}
+.erro-titulo{margin:0;font-size:15px;font-weight:600;}
+.erro-codigo + .erro-titulo + .texto-intro{margin-bottom:20px;}

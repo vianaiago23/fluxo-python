@@ -22,7 +22,13 @@ VERDE = "#005227"
 VERMELHO = "#B23A1F"
 PRATA = "#AEB8B2"
 TINTA = "#0F241A"
-CINZA = "#69786F"
+# Cinza dos textos secundarios. Escurecido para passar de 4,5:1 inclusive
+# sobre os fundos cinza-claro dos cartoes e botoes (antes era #69786F).
+CINZA = "#5A6961"
+
+# Teto de um lancamento. Nao existe limite tecnico: serve para pegar erro de
+# digitacao, como somar zeros a mais, antes de sujar o historico.
+VALOR_MAXIMO = 10_000_000.0
 
 MESES = [
     "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -47,6 +53,38 @@ PERFIS = {
         "entrada": ["Venda de Carros", "Comissão", "Outros"],
         "despesa": ["Combustível", "Documentação", "Marketing",
                     "Comissão de Terceiros", "Impostos", "Outros"],
+    },
+    "salao": {
+        "rotulo": "Salão de Beleza",
+        "entrada": ["Cortes e Escovas", "Coloração", "Manicure e Pedicure",
+                    "Estética", "Venda de Produtos", "Outros"],
+        "despesa": ["Aluguel do Salão", "Produtos e Cosméticos",
+                    "Comissão de Profissionais", "Energia e Água",
+                    "Equipamentos", "Marketing", "Impostos", "Outros"],
+    },
+    "oficina": {
+        "rotulo": "Oficina Mecânica",
+        "entrada": ["Mão de Obra", "Venda de Peças", "Revisão",
+                    "Funilaria e Pintura", "Outros"],
+        "despesa": ["Aluguel da Oficina", "Compra de Peças", "Ferramentas",
+                    "Salários", "Energia e Água", "Descarte de Resíduos",
+                    "Impostos", "Outros"],
+    },
+    "professor": {
+        "rotulo": "Professor(a) Particular",
+        "entrada": ["Aulas Presenciais", "Aulas On-line", "Pacotes Mensais",
+                    "Material Didático", "Outros"],
+        "despesa": ["Transporte", "Livros e Material", "Internet",
+                    "Plataformas e Aplicativos", "Marketing", "Impostos",
+                    "Outros"],
+    },
+    "delivery": {
+        "rotulo": "Delivery / Lanchonete",
+        "entrada": ["Vendas no Balcão", "Pedidos por Aplicativo",
+                    "Pedidos por WhatsApp", "Bebidas", "Outros"],
+        "despesa": ["Ingredientes", "Embalagens", "Taxa dos Aplicativos",
+                    "Entregadores", "Gás e Energia", "Aluguel", "Marketing",
+                    "Impostos", "Outros"],
     },
     "generico": {
         "rotulo": "Genérico / Outro negócio",

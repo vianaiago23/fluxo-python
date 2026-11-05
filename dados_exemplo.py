@@ -33,6 +33,17 @@ def mes_anterior(ano, mes, quantos):
     return total // 12, total % 12 + 1
 
 
+def dia_sorteado(ano, mes, hoje):
+    """Sorteia um dia do mes que nao caia no futuro.
+
+    No mes corrente, o ultimo dia possivel e hoje: o sistema recusa data
+    futura no formulario, e dado de demonstracao nao pode ser algo que o
+    proprio app nao deixaria cadastrar.
+    """
+    ultimo = hoje.day if (ano, mes) == (hoje.year, hoje.month) else 27
+    return random.randint(1, max(1, min(ultimo, 27)))
+
+
 def main():
     banco.criar_tabelas()
 
@@ -63,7 +74,7 @@ def main():
                     banco.criar_lancamento(
                         usuario_id, "entrada", por_nome[nome],
                         round(random.uniform(minimo, maximo), 2),
-                        f"{ano:04d}-{mes:02d}-{random.randint(2, 27):02d}",
+                        f"{ano:04d}-{mes:02d}-{dia_sorteado(ano, mes, data_de_hoje):02d}",
                         random.choice(DESCRICOES))
                     total += 1
 
@@ -71,7 +82,7 @@ def main():
                 banco.criar_lancamento(
                     usuario_id, "despesa", por_nome[nome],
                     round(random.uniform(minimo, maximo), 2),
-                    f"{ano:04d}-{mes:02d}-{random.randint(2, 27):02d}", "")
+                    f"{ano:04d}-{mes:02d}-{dia_sorteado(ano, mes, data_de_hoje):02d}", "")
                 total += 1
 
         banco.salvar_meta(usuario_id, por_nome["Aluguel do Escritório"], 3000)

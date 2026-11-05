@@ -8,7 +8,7 @@
         <input type="hidden" name="acao" value="cor_categoria">
         <input type="hidden" name="categoria_id" value="{{ categoria['id'] }}">
         <input type="hidden" name="cor" value="{{ PALETA[(PALETA.index(categoria['cor']) + 1) % PALETA|length] if categoria['cor'] in PALETA else PALETA[0] }}">
-        <button class="swatch" style="background: {{ categoria['cor'] }}" title="Trocar cor" type="submit"></button>
+        <button class="swatch" style="background: {{ categoria['cor'] }}" title="Trocar cor" aria-label="Trocar a cor da categoria {{ categoria['nome'] }}" type="submit"></button>
       </form>
 
       <form method="post" class="inline cresce">
@@ -22,7 +22,7 @@
             onsubmit="return confirm('Excluir a categoria {{ categoria['nome'] }}?')">
         <input type="hidden" name="acao" value="excluir_categoria">
         <input type="hidden" name="categoria_id" value="{{ categoria['id'] }}">
-        <button class="icon-btn" type="submit" title="Excluir">&#128465;</button>
+        <button class="icon-btn" type="submit" title="Excluir" aria-label="Excluir a categoria {{ categoria['nome'] }}">&#128465;</button>
       </form>
     </div>
   {% endfor %}

@@ -3,11 +3,13 @@
 
 {% block navegacao %}
 <span class="month-nav">
-  <a href="{{ url_for('painel', ano=anterior[0], mes=anterior[1]) }}" title="Mês anterior">&lsaquo;</a>
+  <a href="{{ url_for('painel', ano=anterior[0], mes=anterior[1], **parametros) }}" title="Mês anterior" aria-label="Mês anterior">&lsaquo;</a>
   <span class="label">{{ MESES[mes - 1] }} {{ ano }}</span>
-  <a href="{{ url_for('painel', ano=seguinte[0], mes=seguinte[1]) }}" title="Próximo mês">&rsaquo;</a>
+  <a href="{{ url_for('painel', ano=seguinte[0], mes=seguinte[1], **parametros) }}" title="Próximo mês" aria-label="Próximo mês">&rsaquo;</a>
 </span>
 {% endblock %}
+
+{% macro data_br(texto) %}{{ texto[8:10] }}/{{ texto[5:7] }}/{{ texto[:4] }}{% endmacro %}
 
 {% block conteudo %}
 
@@ -56,7 +58,7 @@
   <div class="card chart-card">
     <h3>Despesas por categoria</h3>
     <div class="donut-wrap">
-      <img src="{{ url_for('grafico', tipo='despesas', ano=ano, mes=mes) }}" alt="Gráfico de despesas por categoria">
+      <img src="{{ url_for('grafico', tipo='despesas', ano=ano, mes=mes) }}" alt="{% if despesas > 0 %}Rosca com as despesas de {{ MESES[mes - 1] }} de {{ ano }} divididas por categoria. O valor de cada categoria está na legenda logo abaixo.{% else %}Ainda não há despesas em {{ MESES[mes - 1] }} de {{ ano }}.{% endif %}">
       {% if despesas > 0 %}
         <span class="donut-center">
           <b class="v">{{ formatar_reais(despesas) }}</b>
@@ -79,7 +81,7 @@
   <div class="card chart-card">
     <h3>Entradas por categoria</h3>
     <div class="donut-wrap">
-      <img src="{{ url_for('grafico', tipo='entradas', ano=ano, mes=mes) }}" alt="Gráfico de entradas por categoria">
+      <img src="{{ url_for('grafico', tipo='entradas', ano=ano, mes=mes) }}" alt="{% if entradas > 0 %}Rosca com as entradas de {{ MESES[mes - 1] }} de {{ ano }} divididas por categoria. O valor de cada categoria está na legenda logo abaixo.{% else %}Ainda não há entradas em {{ MESES[mes - 1] }} de {{ ano }}.{% endif %}">
       {% if entradas > 0 %}
         <span class="donut-center">
           <b class="v">{{ formatar_reais(entradas) }}</b>
@@ -103,7 +105,7 @@
 <div class="card trend-card">
   <h3>Evolução do saldo — últimos 6 meses</h3>
   <img class="grafico-largo" src="{{ url_for('grafico', tipo='saldo', ano=ano, mes=mes) }}"
-       alt="Gráfico do saldo dos últimos seis meses">
+       alt="Barras com o saldo de cada um dos últimos seis meses, até {{ MESES[mes - 1] }} de {{ ano }}: {% for rotulo, valor in saldo_meses %}{{ rotulo }} {{ formatar_reais(valor) }}{{ '; ' if not loop.last else '.' }}{% endfor %}">
 </div>
 
 <div class="card goals-card">
@@ -120,7 +122,7 @@
         <span class="nums">
           {{ formatar_reais(meta['gasto']) }} / {{ formatar_reais(meta['valor_limite']) }}
           <form method="post" action="{{ url_for('excluir_meta', meta_id=meta['id']) }}" class="inline">
-            <button class="goal-remove" type="submit" title="Remover meta">&times;</button>
+            <button class="goal-remove" type="submit" title="Remover meta" aria-label="Remover a meta de {{ meta['nome'] }}">&times;</button>
           </form>
         </span>
       </div>
@@ -136,13 +138,60 @@
 
 <div class="card ledger-card">
   <div class="lh">
-    <h3>Lançamentos de {{ MESES[mes - 1] }}</h3>
+    <h3>
+      {% if inicio and fim %}Lançamentos de {{ data_br(inicio) }} a {{ data_br(fim) }}
+      {% elif inicio %}Lançamentos a partir de {{ data_br(inicio) }}
+      {% elif fim %}Lançamentos até {{ data_br(fim) }}
+      {% else %}Lançamentos de {{ MESES[mes - 1] }}{% endif %}
+    </h3>
     <div class="ledger-actions">
       <a class="btn btn-ghost pequeno" href="{{ url_for('importar') }}">Importar extrato</a>
+      <a class="btn btn-ghost pequeno" href="{{ url_for('relatorio_anual', ano=ano) }}">Relatório anual</a>
       <a class="btn btn-ghost pequeno" href="{{ url_for('baixar_relatorio') }}">Exportar PDF</a>
       <a class="btn btn-primary pequeno" href="{{ url_for('editar_lancamento') }}">+ Novo lançamento</a>
     </div>
   </div>
+
+  <form class="filtros" method="get" action="{{ url_for('painel') }}">
+    <input type="hidden" name="ano" value="{{ ano }}">
+    <input type="hidden" name="mes" value="{{ mes }}">
+    <div class="filtro">
+      <label for="filtro-categoria">Categoria</label>
+      <select id="filtro-categoria" name="categoria">
+        <option value="">Todas</option>
+        {% for grupo, categorias in [('Entradas', categorias_entrada), ('Despesas', categorias_despesa)] if categorias %}
+          <optgroup label="{{ grupo }}">
+            {% for categoria in categorias %}
+              <option value="{{ categoria['id'] }}" {{ 'selected' if categoria['id'] == categoria_id }}>{{ categoria['nome'] }}</option>
+            {% endfor %}
+          </optgroup>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="filtro filtro-data">
+      <label for="filtro-de">De</label>
+      <input id="filtro-de" type="date" name="de" value="{{ inicio or '' }}">
+    </div>
+    <div class="filtro filtro-data">
+      <label for="filtro-ate">Até</label>
+      <input id="filtro-ate" type="date" name="ate" value="{{ fim or '' }}">
+    </div>
+    <div class="filtro">
+      <label for="filtro-ordem">Ordenar por</label>
+      <select id="filtro-ordem" name="ordem">
+        {% for chave, rotulo in [('data_desc', 'Data, mais recente'), ('data_asc', 'Data, mais antiga'),
+                                 ('valor_desc', 'Valor, maior primeiro'), ('valor_asc', 'Valor, menor primeiro')] %}
+          <option value="{{ chave }}" {{ 'selected' if chave == ordem }}>{{ rotulo }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="filtro-acoes">
+      <button class="btn btn-primary pequeno" type="submit">Filtrar</button>
+      {% if parametros %}
+        <a class="btn btn-ghost pequeno" href="{{ url_for('painel', ano=ano, mes=mes) }}">Limpar</a>
+      {% endif %}
+    </div>
+  </form>
 
   {% for movimento in lancamentos %}
     <div class="ledger-row">
@@ -155,26 +204,32 @@
         {{ '+' if movimento['tipo'] == 'entrada' else '−' }} {{ formatar_reais(movimento['valor']) }}
       </span>
       <span class="row-actions">
-        <a class="icon-btn" href="{{ url_for('editar_lancamento', lancamento_id=movimento['id']) }}" title="Editar">&#9998;</a>
+        <a class="icon-btn" href="{{ url_for('editar_lancamento', lancamento_id=movimento['id']) }}" title="Editar" aria-label="Editar lançamento de {{ movimento['categoria_nome'] }}">&#9998;</a>
         <form method="post" action="{{ url_for('excluir_lancamento', lancamento_id=movimento['id']) }}" class="inline"
               onsubmit="return confirm('Excluir este lançamento?')">
-          <button class="icon-btn" type="submit" title="Excluir">&#128465;</button>
+          <button class="icon-btn" type="submit" title="Excluir" aria-label="Excluir lançamento de {{ movimento['categoria_nome'] }}">&#128465;</button>
         </form>
       </span>
     </div>
   {% else %}
+    {% if periodo_invertido %}
+      <p class="empty">A data inicial é depois da final. Confira o período escolhido.</p>
+    {% elif filtros %}
+      <p class="empty">Nenhum lançamento encontrado com esse filtro.</p>
+    {% else %}
     <p class="empty">
       Nenhum lançamento em {{ MESES[mes - 1] }} ainda.<br><br>
       <a class="btn btn-primary" href="{{ url_for('editar_lancamento') }}">+ Adicionar o primeiro</a>
     </p>
+    {% endif %}
   {% endfor %}
 
   {% if total_lancamentos > 5 %}
     <p class="centro">
       {% if mostrar_todos %}
-        <a class="btn btn-ghost pequeno" href="{{ url_for('painel', ano=ano, mes=mes) }}">Ver menos</a>
+        <a class="btn btn-ghost pequeno" href="{{ url_for('painel', ano=ano, mes=mes, **parametros) }}">Ver menos</a>
       {% else %}
-        <a class="btn btn-ghost pequeno" href="{{ url_for('painel', ano=ano, mes=mes, todos=1) }}">Ver tudo ({{ total_lancamentos }})</a>
+        <a class="btn btn-ghost pequeno" href="{{ url_for('painel', ano=ano, mes=mes, todos=1, **parametros) }}">Ver tudo ({{ total_lancamentos }})</a>
       {% endif %}
     </p>
   {% endif %}

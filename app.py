@@ -189,17 +189,18 @@ def motivo_para_recusar(valor, data_texto):
     importacao entrava lancamento com data no futuro.
     """
     if valor is None or valor <= 0:
-        return "Informe um valor maior que zero."
+        return "Informe um valor maior que zero, por exemplo 150,00."
     if valor > VALOR_MAXIMO:
         return (f"Valor alto demais. O limite por lançamento é "
-                f"{formatar_reais(VALOR_MAXIMO)}.")
+                f"{formatar_reais(VALOR_MAXIMO)} — confira se não sobrou "
+                f"algum zero a mais.")
     if not data_texto:
-        return "Escolha uma data."
+        return "Informe a data em que o lançamento aconteceu."
     data = data_eh_valida(data_texto)
     if data is None:
-        return "Data inválida."
+        return "Data não reconhecida. Escolha o dia pelo calendário do campo Data."
     if data > hoje():
-        return "A data não pode estar no futuro."
+        return "A data não pode estar no futuro. Use a data de hoje ou uma anterior."
     return None
 
 
@@ -208,7 +209,7 @@ def problema_na_senha_nova(senha, confirmacao):
     if len(senha) < SENHA_MINIMA:
         return f"A senha precisa ter {SENHA_MINIMA} ou mais caracteres."
     if senha != confirmacao:
-        return "A confirmação não é igual à senha nova."
+        return "A confirmação não é igual à senha nova. Digite a mesma senha nos dois campos."
     return None
 
 
@@ -249,21 +250,23 @@ def entrar():
         senha = request.form.get("senha") or ""
 
         if not email or not senha:
-            flash("Preencha e-mail e senha.", "erro")
+            flash("Preencha o e-mail e a senha para continuar.", "erro")
         elif modo == "cadastro":
             if len(senha) < SENHA_MINIMA:
                 flash(f"A senha precisa ter {SENHA_MINIMA} ou mais caracteres.", "erro")
             else:
                 usuario_id = banco.criar_usuario(email, senha)
                 if usuario_id is None:
-                    flash("Já existe uma conta com esse e-mail.", "erro")
+                    flash("Já existe uma conta com esse e-mail. Entre com ela "
+                          "ou cadastre outro e-mail.", "erro")
                 else:
                     abrir_sessao(usuario_id)
                     return redirect(url_for("perfil"))
         else:
             usuario_id = banco.autenticar(email, senha)
             if usuario_id is None:
-                flash("E-mail ou senha incorretos.", "erro")
+                flash("E-mail ou senha incorretos. Confira o que foi digitado "
+                      "e tente de novo.", "erro")
             else:
                 abrir_sessao(usuario_id)
                 return redirect(url_for("painel"))
@@ -329,7 +332,8 @@ def perfil():
         if escolha in PERFIS:
             banco.aplicar_perfil(session["usuario_id"], escolha)
             return redirect(url_for("painel"))
-        flash("Escolha um dos modelos.", "erro")
+        flash("Escolha um dos modelos abaixo para continuar. As categorias "
+              "podem ser mudadas depois.", "erro")
     return render_template("perfil.html", perfis=PERFIS)
 
 
@@ -422,7 +426,8 @@ def editar_lancamento(lancamento_id=None):
         categoria = banco.buscar_categoria(usuario_id, int(categoria_id)) if categoria_id else None
         tipo = categoria["tipo"] if categoria else "entrada"
 
-        recusa = ("Escolha uma categoria." if categoria is None
+        recusa = ("Escolha a categoria do lançamento. Se faltar alguma, crie "
+                  "em Configurações." if categoria is None
                   else motivo_para_recusar(valor, data_mov))
 
         if recusa:
@@ -475,10 +480,13 @@ def nova_meta():
         # só aceita categoria de despesa que pertença a quem está logado
         categoria = (banco.buscar_categoria(usuario_id, int(categoria_id))
                      if categoria_id.isdigit() else None)
-        if categoria and categoria["tipo"] == "despesa" and limite > 0:
+        if not categoria or categoria["tipo"] != "despesa":
+            flash("Escolha a categoria de despesa que a meta vai limitar.", "erro")
+        elif limite <= 0:
+            flash("Informe um limite mensal maior que zero, por exemplo 500,00.", "erro")
+        else:
             banco.salvar_meta(usuario_id, categoria["id"], limite)
             return redirect(url_for("painel"))
-        flash("Escolha a categoria e informe um valor válido.", "erro")
 
     return render_template("meta.html", categorias=categorias)
 
@@ -510,7 +518,7 @@ def configuracoes():
             if nome and tipo in ("entrada", "despesa"):
                 banco.criar_categoria(usuario_id, tipo, nome)
             else:
-                flash("Informe o nome da categoria.", "erro")
+                flash("Digite um nome para a categoria nova antes de adicionar.", "erro")
 
         elif acao == "renomear_categoria":
             banco.renomear_categoria(usuario_id, int(request.form["categoria_id"]),
@@ -541,7 +549,8 @@ def configuracoes():
             problema = problema_na_senha_nova(senha_nova, request.form.get("confirmacao") or "")
             # Sem conferir a atual, quem achasse a sessão aberta tomaria a conta.
             if not banco.conferir_senha(usuario_id, request.form.get("senha_atual") or ""):
-                flash("A senha atual está incorreta.", "erro")
+                flash("A senha atual está incorreta. Digite a senha que você "
+                      "usa para entrar.", "erro")
             elif problema:
                 flash(problema, "erro")
             else:
@@ -556,7 +565,8 @@ def configuracoes():
                 session.clear()
                 flash("Sua conta foi excluída.", "ok")
                 return redirect(url_for("entrar"))
-            flash("Senha incorreta. A conta não foi excluída.", "erro")
+            flash("Senha incorreta. A conta não foi excluída — para excluir, "
+                  "digite a senha que você usa para entrar.", "erro")
 
         return redirect(url_for("configuracoes"))
 
@@ -576,12 +586,15 @@ def importar():
     if request.method == "POST":
         arquivo = request.files.get("extrato")
         if not arquivo or not arquivo.filename:
-            flash("Escolha um arquivo .csv ou .ofx.", "erro")
+            flash("Nenhum arquivo foi escolhido. Selecione o extrato em .csv "
+                  "ou .ofx baixado do site do seu banco.", "erro")
             return redirect(url_for("importar"))
 
         movimentos = leitor_extrato.ler_extrato(arquivo.filename, arquivo.read())
         if not movimentos:
-            flash("Não foi possível ler nenhum lançamento desse arquivo.", "erro")
+            flash("Nenhum lançamento foi encontrado nesse arquivo. Confira se "
+                  "é o extrato em .csv ou .ofx exportado pelo banco, com as "
+                  "colunas de data e de valor.", "erro")
             return redirect(url_for("importar"))
 
         usuario_id = session["usuario_id"]
@@ -627,16 +640,18 @@ def confirmar_importacao():
         )
         gravados += 1
 
+    regra = (f"A data não pode estar no futuro e o valor precisa ser maior que "
+             f"zero e de até {formatar_reais(VALOR_MAXIMO)}.")
     if gravados and recusados:
-        flash(f"{gravados} lançamento(s) importado(s). {recusados} foram "
-              f"deixados de fora por data ou valor fora do aceito.", "ok")
+        flash(f"{gravados} lançamento(s) importado(s). {recusados} ficaram de "
+              f"fora: {regra} Lance esses à mão, se forem necessários.", "ok")
     elif gravados:
         flash(f"{gravados} lançamento(s) importado(s).", "ok")
     elif recusados:
-        flash("Nenhum lançamento foi importado: a data ou o valor estavam "
-              "fora do aceito.", "erro")
+        flash(f"Nenhum lançamento foi importado. {regra}", "erro")
     else:
-        flash("Nenhum lançamento foi importado.", "erro")
+        flash("Nenhum lançamento foi importado. Marque pelo menos uma linha "
+              "e escolha a categoria dela.", "erro")
     return redirect(url_for("painel"))
 
 
@@ -673,7 +688,8 @@ def baixar_relatorio():
     usuario_id = session["usuario_id"]
     lancamentos = [dict(l) for l in banco.listar_todos_lancamentos(usuario_id)]
     if not lancamentos:
-        flash("Nenhum lançamento para exportar ainda.", "erro")
+        flash("Ainda não há lançamentos para o relatório. Cadastre o primeiro "
+              "em + Novo lançamento.", "erro")
         return redirect(url_for("painel"))
 
     pdf = relatorio.gerar_pdf(g.usuario["nome_negocio"], lancamentos)
